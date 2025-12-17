@@ -13,6 +13,8 @@ export const EntityLibrary: React.FC = () => {
   const [search, setSearch] = useState('');
   const [newEntityType, setNewEntityType] = useState('');
   const [newEntityName, setNewEntityName] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
 
   useEffect(() => {
     loadEntities();
@@ -43,6 +45,39 @@ export const EntityLibrary: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to create entity:', error);
       alert(`Error creating entity: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handleEditEntity = (entityId: number, currentName: string) => {
+    setEditingId(entityId);
+    setEditName(currentName);
+  };
+
+  const handleSaveEdit = async (entityId: number) => {
+    if (!editName) {
+      alert('Please enter an entity name');
+      return;
+    }
+    try {
+      await entityAPI.update(entityId, { displayName: editName });
+      setEditingId(null);
+      loadEntities();
+    } catch (error: any) {
+      console.error('Failed to update entity:', error);
+      alert(`Error updating entity: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handleDeleteEntity = async (entityId: number, entityName: string) => {
+    if (!window.confirm(`Delete entity "${entityName}"?`)) {
+      return;
+    }
+    try {
+      await entityAPI.delete(entityId);
+      loadEntities();
+    } catch (error: any) {
+      console.error('Failed to delete entity:', error);
+      alert(`Error deleting entity: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -88,11 +123,93 @@ export const EntityLibrary: React.FC = () => {
 
       {/* Entities List */}
       <h3>Entities ({entities.length})</h3>
-      <ul>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
         {entities.map((e) => (
-          <li key={e.entityId} style={{ marginBottom: '8px' }}>
-            <strong>{e.displayName}</strong> <br />
-            <small style={{ color: '#666' }}>({e.entityType})</small>
+          <li
+            key={e.entityId}
+            style={{
+              marginBottom: '10px',
+              padding: '10px',
+              backgroundColor: 'white',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0',
+            }}
+          >
+            {editingId === e.entityId ? (
+              <div>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px', boxSizing: 'border-box' }}
+                />
+                <button
+                  onClick={() => handleSaveEdit(e.entityId)}
+                  style={{
+                    marginRight: '5px',
+                    padding: '4px 8px',
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingId(null)}
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: '#757575',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div>
+                <strong>{e.displayName}</strong> <br />
+                <small style={{ color: '#666' }}>({e.entityType})</small>
+                <div style={{ marginTop: '8px' }}>
+                  <button
+                    onClick={() => handleEditEntity(e.entityId, e.displayName)}
+                    style={{
+                      marginRight: '5px',
+                      padding: '4px 8px',
+                      backgroundColor: '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => handleDeleteEntity(e.entityId, e.displayName)}
+                    style={{
+                      padding: '4px 8px',
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            )}
           </li>
         ))}
       </ul>

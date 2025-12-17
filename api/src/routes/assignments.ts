@@ -4,6 +4,18 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 
 export default function createAssignmentRoutes(prisma: PrismaClient) {
+  // GET /assignments - get all assignments
+  router.get('/assignments', async (req: Request, res: Response) => {
+    try {
+      const assignments = await prisma.podAssignment.findMany({
+        include: { entity: true },
+      });
+      res.json(assignments);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch assignments' });
+    }
+  });
+
   // GET /pods/:podId/assignments
   router.get('/pods/:podId/assignments', async (req: Request, res: Response) => {
     try {
@@ -43,7 +55,7 @@ export default function createAssignmentRoutes(prisma: PrismaClient) {
   });
 
   // DELETE /assignments/:id
-  router.delete('/:id', async (req: Request, res: Response) => {
+  router.delete('/assignments/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await prisma.podAssignment.delete({

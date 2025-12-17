@@ -5,7 +5,7 @@ const router = Router();
 
 export default function createEntityRoutes(prisma: PrismaClient) {
   // GET /entities?type=Customer&q=acme
-  router.get('/', async (req: Request, res: Response) => {
+  router.get('/entities', async (req: Request, res: Response) => {
     try {
       const { type, q } = req.query;
       const where: any = {};
@@ -25,7 +25,7 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   });
 
   // POST /entities
-  router.post('/', async (req: Request, res: Response) => {
+  router.post('/entities', async (req: Request, res: Response) => {
     try {
       const { entityType, displayName, externalSystemId } = req.body;
       const entity = await prisma.entity.create({
@@ -38,7 +38,7 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   });
 
   // PATCH /entities/:id
-  router.patch('/:id', async (req: Request, res: Response) => {
+  router.patch('/entities/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { displayName, externalSystemId } = req.body;
@@ -53,7 +53,7 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   });
 
   // DELETE /entities/:id
-  router.delete('/:id', async (req: Request, res: Response) => {
+  router.delete('/entities/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await prisma.entity.delete({

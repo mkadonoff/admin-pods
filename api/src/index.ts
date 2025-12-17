@@ -24,8 +24,8 @@ app.use(express.json());
 app.use('/floors', createFloorRoutes(prisma));
 app.use('/', createRingRoutes(prisma));
 app.use('/', createPodRoutes(prisma));
-app.use('/entities', createEntityRoutes(prisma));
-app.use('/assignments', createAssignmentRoutes(prisma));
+app.use('/', createEntityRoutes(prisma));
+app.use('/', createAssignmentRoutes(prisma));
 
 // Health check
 app.get('/health', (req, res) => {

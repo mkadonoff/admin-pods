@@ -41,6 +41,7 @@ export const entityAPI = {
 
 // Assignments
 export const assignmentAPI = {
+  listAll: () => API.get('/assignments'),
   listByPod: (podId: number) => API.get(`/pods/${podId}/assignments`),
   create: (podId: number, data: { entityId: number; roleTag?: string }) =>
     API.post(`/pods/${podId}/assignments`, data),

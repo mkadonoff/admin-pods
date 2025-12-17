@@ -18,6 +18,7 @@ interface Ring {
 
 interface Assignment {
   assignmentId: number;
+  podId: number;
   entityId: number;
   roleTag?: string;
   entity: { displayName: string };
@@ -31,6 +32,7 @@ interface LayoutViewProps {
 export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) => {
   const [pods, setPods] = useState<Pod[]>([]);
   const [rings, setRings] = useState<Ring[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [newRingName, setNewRingName] = useState('');
   const [newRingRadius, setNewRingRadius] = useState(1);
   const [newRingSlots, setNewRingSlots] = useState(6);
@@ -40,6 +42,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
   useEffect(() => {
     loadPods();
     loadRings();
+    loadAssignments();
   }, [floorId]);
 
   const loadPods = async () => {
@@ -62,6 +65,15 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
     }
   };
 
+  const loadAssignments = async () => {
+    try {
+      const response = await assignmentAPI.listAll();
+      setAssignments(response.data);
+    } catch (error) {
+      console.error('Failed to load assignments', error);
+    }
+  };
+
   const handleCreateRing = async () => {
     if (!newRingName) {
       alert('Please enter a ring name');
@@ -79,6 +91,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
       setNewRingSlots(6);
       loadRings();
       loadPods();
+      loadAssignments();
     } catch (error: any) {
       console.error('Failed to create ring:', error);
       alert(`Error creating ring: ${error.response?.data?.error || error.message}`);
@@ -113,6 +126,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
       setEditingRingId(null);
       loadRings();
       loadPods();
+      loadAssignments();
     } catch (error: any) {
       console.error('Failed to update ring:', error);
       alert(`Error updating ring: ${error.response?.data?.error || error.message}`);
@@ -127,6 +141,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
       await ringAPI.delete(ringId);
       loadRings();
       loadPods();
+      loadAssignments();
     } catch (error: any) {
       console.error('Failed to delete ring:', error);
       alert(`Error deleting ring: ${error.response?.data?.error || error.message}`);
@@ -138,6 +153,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
   rings.forEach((ring) => {
     ringPodsByRingId[ring.ringId] = pods.filter((p) => p.ringId === ring.ringId);
   });
+
+  // Helper to get assignment for a pod
+  const getAssignmentForPod = (podId: number) => {
+    return assignments.find((a) => a.podId === podId);
+  };
 
   return (
     <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
@@ -182,21 +202,32 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
         {centerPods.length > 0 && (
           <div style={{ marginBottom: '40px' }}>
             <h3>Center</h3>
-            {centerPods.map((pod) => (
-              <button
-                key={pod.podId}
-                onClick={() => onPodSelect(pod.podId)}
-                style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '50%',
-                  fontSize: '12px',
-                  margin: '10px',
-                }}
-              >
-                {pod.name}
-              </button>
-            ))}
+            {centerPods.map((pod) => {
+              const assignment = getAssignmentForPod(pod.podId);
+              return (
+                <button
+                  key={pod.podId}
+                  onClick={() => onPodSelect(pod.podId)}
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    borderRadius: '50%',
+                    fontSize: '12px',
+                    margin: '10px',
+                    backgroundColor: assignment ? '#e8f5e9' : '#fff',
+                    border: assignment ? '2px solid #4CAF50' : '1px solid #ccc',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div>{pod.name}</div>
+                  {assignment && (
+                    <div style={{ fontSize: '10px', marginTop: '5px', fontWeight: 'bold', color: '#2e7d32' }}>
+                      {assignment.entity.displayName}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -224,15 +255,31 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
               </>
             )}
             <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-              {ringPodsByRingId[ring.ringId]?.map((pod) => (
-                <button
-                  key={pod.podId}
-                  onClick={() => onPodSelect(pod.podId)}
-                  style={{ width: '80px', padding: '10px' }}
-                >
-                  {pod.name}
-                </button>
-              ))}
+              {ringPodsByRingId[ring.ringId]?.map((pod) => {
+                const assignment = getAssignmentForPod(pod.podId);
+                return (
+                  <button
+                    key={pod.podId}
+                    onClick={() => onPodSelect(pod.podId)}
+                    style={{
+                      width: '80px',
+                      padding: '10px',
+                      backgroundColor: assignment ? '#e8f5e9' : '#fff',
+                      border: assignment ? '2px solid #4CAF50' : '1px solid #ccc',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                    }}
+                  >
+                    <div>{pod.name}</div>
+                    {assignment && (
+                      <div style={{ fontSize: '10px', marginTop: '4px', fontWeight: 'bold', color: '#2e7d32' }}>
+                        {assignment.entity.displayName}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
