@@ -1,0 +1,22 @@
+BEGIN TRY
+
+BEGIN TRAN;
+
+-- DropForeignKey
+ALTER TABLE [dbo].[Pod] DROP CONSTRAINT [Pod_ringId_fkey];
+
+-- AddForeignKey
+ALTER TABLE [dbo].[Pod] ADD CONSTRAINT [Pod_ringId_fkey] FOREIGN KEY ([ringId]) REFERENCES [dbo].[Ring]([ringId]) ON DELETE CASCADE ON UPDATE CASCADE;
+
+COMMIT TRAN;
+
+END TRY
+BEGIN CATCH
+
+IF @@TRANCOUNT > 0
+BEGIN
+    ROLLBACK TRAN;
+END;
+THROW
+
+END CATCH

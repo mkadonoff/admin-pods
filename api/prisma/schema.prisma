@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Floor {
+  floorId    Int      @id @default(autoincrement())
+  name       String
+  orderIndex Int
+  rings      Ring[]
+  pods       Pod[]
+  layoutSnapshots LayoutSnapshot[]
+
+  @@map("Floor")
+}
+
+model Ring {
+  ringId       Int   @id @default(autoincrement())
+  floorId      Int
+  floor        Floor @relation(fields: [floorId], references: [floorId], onDelete: NoAction, onUpdate: NoAction)
+  name         String
+  radiusIndex  Int
+  slots        Int
+  pods         Pod[]
+
+  @@map("Ring")
+}
+
+model Pod {
+  podId        Int      @id @default(autoincrement())
+  floorId      Int
+  ringId       Int
+  slotIndex    Int
+  name         String
+  podType      String   @default("standard")
+  floor        Floor    @relation(fields: [floorId], references: [floorId], onDelete: Cascade)
+  ring         Ring     @relation(fields: [ringId], references: [ringId], onDelete: Cascade)
+  assignments  PodAssignment[]
+
+  @@unique([ringId, slotIndex])
+  @@map("Pod")
+}
+
+model Entity {
+  entityId           Int      @id @default(autoincrement())
+  entityType         String
+  displayName        String
+  externalSystemId   String?
+  assignments        PodAssignment[]
+
+  @@map("Entity")
+}
+
+model PodAssignment {
+  assignmentId Int      @id @default(autoincrement())
+  podId        Int
+  entityId     Int
+  roleTag      String?
+  createdAt    DateTime @default(now())
+  pod          Pod      @relation(fields: [podId], references: [podId], onDelete: Cascade)
+  entity       Entity   @relation(fields: [entityId], references: [entityId], onDelete: Cascade)
+
+  @@unique([podId, entityId])
+  @@map("PodAssignment")
+}
+
+model LayoutSnapshot {
+  snapshotId Int      @id @default(autoincrement())
+  floorId    Int
+  jsonLayout String
+  createdAt  DateTime @default(now())
+  floor      Floor    @relation(fields: [floorId], references: [floorId], onDelete: Cascade)
+
+  @@map("LayoutSnapshot")
+}
