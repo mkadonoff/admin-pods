@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { podAPI, assignmentAPI, entityAPI } from '../api';
+import { assignmentAPI, entityAPI } from '../api';
 
 interface Assignment {
   assignmentId: number;
@@ -93,7 +93,6 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
 
   if (!podId) return null;
 
-  const assignedEntityIds = new Set(assignments.map(a => a.entityId));
   const globalAssignedEntityIds = new Set(allAssignments.map(a => a.entityId));
   const availableEntities = entities.filter(e => !globalAssignedEntityIds.has(e.entityId));
 
