@@ -1,5 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { podAPI, ringAPI, assignmentAPI } from '../api';
+import { Canvas, useThree } from '@react-three/fiber';
+
+const ROT_STEP = Math.PI / 6; // 30 degrees
+const POD_RADIUS = 0.75;
+const POD_HEIGHT = 1.4;
+const POD_APOTHEM = POD_RADIUS * Math.cos(Math.PI / 6);
+
+function PodMesh({ rotation, scale }: { rotation: [number, number, number]; scale: [number, number, number] }) {
+  return (
+    <group scale={scale}>
+      {/* Pod body (centered), group is positioned by the parent so the bottom sits on y=0 */}
+      <mesh rotation={rotation}>
+        <cylinderGeometry args={[POD_RADIUS, POD_RADIUS, POD_HEIGHT, 6]} />
+        <meshStandardMaterial color="#8aa4d6" />
+      </mesh>
+
+      {/* Windows on the +Z side face */}
+      <group rotation={rotation} position={[0, 0, POD_APOTHEM + 0.01]}>
+        {[-0.35, 0, 0.35].map((y, idx) => (
+          <mesh key={idx} position={[0, y, 0]}>
+            <planeGeometry args={[POD_RADIUS * 0.72, POD_HEIGHT * 0.18]} />
+            <meshStandardMaterial color="#ffffff" transparent opacity={0.35} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+function PodScene({ rotation, floorIndex }: { rotation: [number, number, number]; floorIndex?: number }) {
+  const { viewport, camera } = useThree();
+
+  // Keep the pod comfortably within view (smaller than the viewport).
+  const scale = useMemo<[number, number, number]>(() => {
+    const sx = (viewport.width / POD_RADIUS) * 0.35;
+    const sy = (viewport.height / POD_HEIGHT) * 0.35;
+    const s = Math.min(sx, sy);
+    return [s, s, s];
+  }, [viewport.width, viewport.height]);
+
+  const podY = (POD_HEIGHT * scale[1]) / 2;
+
+  useEffect(() => {
+    // Arrow keys navigate floors/pods in App; here we just tilt camera up/down with floor changes.
+    const floorOffset = (floorIndex ?? 0) * (POD_HEIGHT * scale[1]) * 0.6;
+    camera.position.set(0, podY + floorOffset, 6);
+    camera.lookAt(0, podY, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, podY, floorIndex, scale]);
+
+  return (
+    <>
+      {/* Floor (y=0) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
+        <planeGeometry args={[viewport.width * 2, viewport.height * 2]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+
+      {/* Pod centered at origin, bottom face on floor */}
+      <group position={[0, podY, 0]}>
+        <PodMesh rotation={rotation} scale={scale} />
+      </group>
+    </>
+  );
+}
 
 interface Pod {
   podId: number;
@@ -28,9 +93,11 @@ interface LayoutViewProps {
   floorId: number;
   onPodSelect: (podId: number) => void;
   assignmentsVersion?: number;
+  floorIndex?: number;
+  onLayoutData?: (pods: Pod[], rings: Ring[]) => void;
 }
 
-export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, assignmentsVersion }) => {
+export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, assignmentsVersion, floorIndex, onLayoutData }) => {
   const [pods, setPods] = useState<Pod[]>([]);
   const [rings, setRings] = useState<Ring[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -39,6 +106,40 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, as
   const [newRingSlots, setNewRingSlots] = useState(6);
   const [editingRingId, setEditingRingId] = useState<number | null>(null);
   const [editRingName, setEditRingName] = useState('');
+  const [cubeRotation, setCubeRotation] = useState<[number, number, number]>([0, 0, 0]);
+  const podsRef = useRef<Pod[]>([]);
+  const ringsRef = useRef<Ring[]>([]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      const tag = active?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      const key = event.key;
+      const lower = key.toLowerCase();
+
+      // Controls (3D only):
+      // - W/S: rotate X
+      // - A/D: rotate Y
+      // - Q/E: rotate Z
+      if (!['w', 's', 'a', 'd', 'q', 'e'].includes(lower)) return;
+      event.preventDefault();
+
+      setCubeRotation(([x, y, z]) => {
+        if (lower === 'w') return [x + ROT_STEP, y, z];
+        if (lower === 's') return [x - ROT_STEP, y, z];
+        if (lower === 'a') return [x, y + ROT_STEP, z];
+        if (lower === 'd') return [x, y - ROT_STEP, z];
+        if (lower === 'q') return [x, y, z + ROT_STEP];
+        if (lower === 'e') return [x, y, z - ROT_STEP];
+        return [x, y, z];
+      });
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   useEffect(() => {
     loadPods();
@@ -55,6 +156,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, as
       const response = await podAPI.listByFloor(floorId);
       console.log('Loaded pods:', response.data);
       setPods(response.data);
+      podsRef.current = response.data;
+      onLayoutData?.(podsRef.current, ringsRef.current);
     } catch (error) {
       console.error('Failed to load pods', error);
     }
@@ -65,6 +168,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, as
       const response = await ringAPI.listByFloor(floorId);
       console.log('Loaded rings:', response.data);
       setRings(response.data);
+      ringsRef.current = response.data;
+      onLayoutData?.(podsRef.current, ringsRef.current);
     } catch (error) {
       console.error('Failed to load rings', error);
     }
@@ -180,7 +285,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, as
         }}
       >
         <h2 style={{ marginTop: 0 }}>3D View</h2>
-        <div style={{ color: '#999', fontSize: '12px' }}>Reserved space for 3D visualization.</div>
+        <div style={{ color: '#999', fontSize: '12px' }}>
+          Controls: WASD rotate X/Y, Q/E rotate Z (30° steps). Arrow keys navigate floors/pods.
+        </div>
         <div
           style={{
             marginTop: '12px',
@@ -188,8 +295,15 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, as
             border: '1px dashed #ccc',
             borderRadius: '4px',
             backgroundColor: '#fafafa',
+            overflow: 'hidden',
           }}
-        />
+        >
+          <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+            <ambientLight intensity={0.6} />
+            <directionalLight position={[3, 3, 6]} intensity={1.0} />
+            <PodScene rotation={cubeRotation} floorIndex={floorIndex} />
+          </Canvas>
+        </div>
       </div>
 
       {/* 2D Layout */}

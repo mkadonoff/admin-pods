@@ -73,9 +73,9 @@ Open the `/admin-pods` folder in VS Code. The workspace will recognize both `api
 ### 2. Install & Run (Terminal)
 ```bash
 # Terminal 1: API
-cd api
+ cd api
 npm install
-npm run dev          # Listens on port 3000
+npm run dev         # Listens on port 3000
 
 # Terminal 2: Web
 cd web
