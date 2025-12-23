@@ -27,9 +27,10 @@ interface Assignment {
 interface LayoutViewProps {
   floorId: number;
   onPodSelect: (podId: number) => void;
+  assignmentsVersion?: number;
 }
 
-export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) => {
+export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect, assignmentsVersion }) => {
   const [pods, setPods] = useState<Pod[]>([]);
   const [rings, setRings] = useState<Ring[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -44,6 +45,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
     loadRings();
     loadAssignments();
   }, [floorId]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [assignmentsVersion]);
 
   const loadPods = async () => {
     try {
@@ -163,40 +168,31 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
     <div style={{ flex: 1, padding: '20px', overflowY: 'auto' }}>
       <h2>Layout View - Floor {floorId}</h2>
 
-      {/* Ring Creation */}
-      <div style={{ marginBottom: '30px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px' }}>
-        <h3>Create Ring</h3>
-        <input
-          type="text"
-          placeholder="Ring name"
-          value={newRingName}
-          onChange={(e) => setNewRingName(e.target.value)}
-          style={{ marginRight: '10px' }}
+      {/* 3D View (center) */}
+      <div
+        style={{
+          marginBottom: '20px',
+          border: '1px solid #ddd',
+          borderRadius: '4px',
+          padding: '15px',
+          backgroundColor: '#fff',
+          boxSizing: 'border-box',
+        }}
+      >
+        <h2 style={{ marginTop: 0 }}>3D View</h2>
+        <div style={{ color: '#999', fontSize: '12px' }}>Reserved space for 3D visualization.</div>
+        <div
+          style={{
+            marginTop: '12px',
+            height: '520px',
+            border: '1px dashed #ccc',
+            borderRadius: '4px',
+            backgroundColor: '#fafafa',
+          }}
         />
-        <label style={{ marginRight: '10px' }}>
-          Radius:
-          <input
-            type="number"
-            min="0"
-            value={newRingRadius}
-            onChange={(e) => setNewRingRadius(parseInt(e.target.value))}
-            style={{ width: '50px', marginLeft: '5px' }}
-          />
-        </label>
-        <label style={{ marginRight: '10px' }}>
-          Slots:
-          <input
-            type="number"
-            min="1"
-            value={newRingSlots}
-            onChange={(e) => setNewRingSlots(parseInt(e.target.value))}
-            style={{ width: '50px', marginLeft: '5px' }}
-          />
-        </label>
-        <button onClick={handleCreateRing}>Create Ring</button>
       </div>
 
-      {/* Layout */}
+      {/* 2D Layout */}
       <div style={{ textAlign: 'center' }}>
         {/* Center */}
         {centerPods.length > 0 && (
@@ -287,6 +283,39 @@ export const LayoutView: React.FC<LayoutViewProps> = ({ floorId, onPodSelect }) 
         {pods.length === 0 && (
           <p style={{ color: '#999' }}>No pods yet. Create a ring to add pods!</p>
         )}
+      </div>
+
+      {/* Ring Creation */}
+      <div style={{ marginTop: '20px', padding: '15px', border: '1px solid #ddd', borderRadius: '4px' }}>
+        <h3>Create Ring</h3>
+        <input
+          type="text"
+          placeholder="Ring name"
+          value={newRingName}
+          onChange={(e) => setNewRingName(e.target.value)}
+          style={{ marginRight: '10px' }}
+        />
+        <label style={{ marginRight: '10px' }}>
+          Radius:
+          <input
+            type="number"
+            min="0"
+            value={newRingRadius}
+            onChange={(e) => setNewRingRadius(parseInt(e.target.value))}
+            style={{ width: '50px', marginLeft: '5px' }}
+          />
+        </label>
+        <label style={{ marginRight: '10px' }}>
+          Slots:
+          <input
+            type="number"
+            min="1"
+            value={newRingSlots}
+            onChange={(e) => setNewRingSlots(parseInt(e.target.value))}
+            style={{ width: '50px', marginLeft: '5px' }}
+          />
+        </label>
+        <button onClick={handleCreateRing}>Create Ring</button>
       </div>
     </div>
   );

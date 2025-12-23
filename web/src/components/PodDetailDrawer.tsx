@@ -17,9 +17,10 @@ interface Entity {
 interface PodDetailDrawerProps {
   podId: number | null;
   onClose: () => void;
+  onAssignmentsChanged?: () => void;
 }
 
-export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose }) => {
+export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose, onAssignmentsChanged }) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -76,6 +77,8 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
       setSelectedEntityId('');
       setRoleTag('');
       loadAssignments();
+      loadAllAssignments();
+      onAssignmentsChanged?.();
     } catch (error: any) {
       console.error('Failed to assign entity:', error);
       alert(`Error: ${error.response?.data?.error || error.message}`);
@@ -86,6 +89,8 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
     try {
       await assignmentAPI.delete(assignmentId);
       loadAssignments();
+      loadAllAssignments();
+      onAssignmentsChanged?.();
     } catch (error) {
       console.error('Failed to delete assignment', error);
     }

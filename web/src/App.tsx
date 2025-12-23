@@ -9,6 +9,11 @@ import { EntityLibrary } from './components/EntityLibrary';
 function App() {
   const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
   const [selectedPod, setSelectedPod] = useState<number | null>(null);
+  const [assignmentsVersion, setAssignmentsVersion] = useState(0);
+
+  const notifyAssignmentsChanged = () => {
+    setAssignmentsVersion((v) => v + 1);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -36,11 +41,19 @@ function App() {
         <FloorManager onFloorSelect={setSelectedFloor} />
         {selectedFloor && (
           <>
-            <LayoutView floorId={selectedFloor} onPodSelect={setSelectedPod} />
+            <LayoutView
+              floorId={selectedFloor}
+              onPodSelect={setSelectedPod}
+              assignmentsVersion={assignmentsVersion}
+            />
             <EntityLibrary />
           </>
         )}
-        <PodDetailDrawer podId={selectedPod} onClose={() => setSelectedPod(null)} />
+        <PodDetailDrawer
+          podId={selectedPod}
+          onClose={() => setSelectedPod(null)}
+          onAssignmentsChanged={notifyAssignmentsChanged}
+        />
       </div>
     </div>
   );
