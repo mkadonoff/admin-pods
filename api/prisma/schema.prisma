@@ -7,25 +7,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Assembly {
+  assemblyId Int      @id @default(autoincrement())
+  name       String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  floors     Floor[]
+
+  @@map("Assembly")
+}
+
 model Floor {
-  floorId    Int      @id @default(autoincrement())
-  name       String
-  orderIndex Int
-  rings      Ring[]
-  pods       Pod[]
+  floorId         Int              @id @default(autoincrement())
+  name            String
+  orderIndex      Int              @default(0)
+  assemblyId      Int
+  assembly        Assembly         @relation(fields: [assemblyId], references: [assemblyId], onDelete: Cascade)
+  rings           Ring[]
+  pods            Pod[]
   layoutSnapshots LayoutSnapshot[]
 
   @@map("Floor")
 }
 
 model Ring {
-  ringId       Int   @id @default(autoincrement())
-  floorId      Int
-  floor        Floor @relation(fields: [floorId], references: [floorId], onDelete: NoAction, onUpdate: NoAction)
-  name         String
-  radiusIndex  Int
-  slots        Int
-  pods         Pod[]
+  ringId      Int    @id @default(autoincrement())
+  floorId     Int
+  floor       Floor  @relation(fields: [floorId], references: [floorId], onDelete: Cascade)
+  name        String
+  radiusIndex Int
+  slots       Int
+  pods        Pod[]
 
   @@map("Ring")
 }
@@ -37,7 +49,7 @@ model Pod {
   slotIndex    Int
   name         String
   podType      String   @default("standard")
-  floor        Floor    @relation(fields: [floorId], references: [floorId], onDelete: Cascade)
+  floor        Floor    @relation(fields: [floorId], references: [floorId], onDelete: NoAction, onUpdate: NoAction)
   ring         Ring     @relation(fields: [ringId], references: [ringId], onDelete: Cascade)
   assignments  PodAssignment[]
 

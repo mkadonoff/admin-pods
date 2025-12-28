@@ -4,46 +4,112 @@ const API = axios.create({
   baseURL: 'http://localhost:3000'
 });
 
+// Types
+export interface Assembly {
+  assemblyId: number;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { floors: number };
+}
+
+export interface Floor {
+  floorId: number;
+  name: string;
+  orderIndex: number;
+  assemblyId: number;
+  assembly?: { assemblyId: number; name: string };
+  rings?: Ring[];
+}
+
+export interface Ring {
+  ringId: number;
+  floorId: number;
+  name: string;
+  radiusIndex: number;
+  slots: number;
+  pods?: Pod[];
+}
+
+export interface Pod {
+  podId: number;
+  floorId: number;
+  ringId: number;
+  slotIndex: number;
+  name: string;
+  podType: string;
+  assignments?: PodAssignment[];
+}
+
+export interface Entity {
+  entityId: number;
+  entityType: string;
+  displayName: string;
+  externalSystemId: string | null;
+}
+
+export interface PodAssignment {
+  assignmentId: number;
+  podId: number;
+  entityId: number;
+  roleTag: string | null;
+  createdAt: string;
+  entity?: Entity;
+}
+
+// Assemblies
+export const assemblyAPI = {
+  list: () => API.get<Assembly[]>('/assemblies'),
+  get: (id: number) => API.get<Assembly & { floors: Floor[] }>(`/assemblies/${id}`),
+  create: (name: string) => API.post<Assembly>('/assemblies', { name }),
+  update: (id: number, name: string) => API.patch<Assembly>(`/assemblies/${id}`, { name }),
+  delete: (id: number) => API.delete(`/assemblies/${id}`),
+};
+
 // Floors
 export const floorAPI = {
-  list: () => API.get('/floors'),
-  create: (data: { name: string; orderIndex: number }) => API.post('/floors', data),
-  update: (id: number, data: Partial<{ name: string; orderIndex: number }>) => 
-    API.patch(`/floors/${id}`, data),
+  list: (assemblyIds?: number[]) => {
+    const params = assemblyIds?.length ? { assemblyIds: assemblyIds.join(',') } : {};
+    return API.get<Floor[]>('/floors', { params });
+  },
+  create: (data: { name: string; orderIndex?: number; assemblyId: number }) =>
+    API.post<Floor>('/floors', data),
+  update: (id: number, data: Partial<{ name: string; orderIndex: number }>) =>
+    API.patch<Floor>(`/floors/${id}`, data),
   delete: (id: number) => API.delete(`/floors/${id}`),
 };
 
 // Rings
 export const ringAPI = {
-  listByFloor: (floorId: number) => API.get(`/floors/${floorId}/rings`),
+  listByFloor: (floorId: number) => API.get<Ring[]>(`/floors/${floorId}/rings`),
   create: (floorId: number, data: { name: string; radiusIndex: number; slots: number }) =>
-    API.post(`/floors/${floorId}/rings`, data),
-  update: (id: number, data: Partial<{ name: string }>) => API.patch(`/rings/${id}`, data),
+    API.post<Ring>(`/floors/${floorId}/rings`, data),
+  update: (id: number, data: Partial<{ name: string; radiusIndex: number }>) => API.patch<Ring>(`/rings/${id}`, data),
   delete: (id: number) => API.delete(`/rings/${id}`),
 };
 
 // Pods
 export const podAPI = {
-  listByFloor: (floorId: number) => API.get(`/floors/${floorId}/pods`),
+  listByFloor: (floorId: number) => API.get<Pod[]>(`/floors/${floorId}/pods`),
   update: (id: number, data: Partial<{ name: string; podType: string }>) =>
-    API.patch(`/pods/${id}`, data),
+    API.patch<Pod>(`/pods/${id}`, data),
 };
 
 // Entities
 export const entityAPI = {
-  list: (type?: string, q?: string) => API.get('/entities', { params: { type, q } }),
+  list: (type?: string, q?: string) => API.get<Entity[]>('/entities', { params: { type, q } }),
   create: (data: { entityType: string; displayName: string; externalSystemId?: string }) =>
-    API.post('/entities', data),
+    API.post<Entity>('/entities', data),
   update: (id: number, data: Partial<{ displayName: string; externalSystemId: string }>) =>
-    API.patch(`/entities/${id}`, data),
+    API.patch<Entity>(`/entities/${id}`, data),
   delete: (id: number) => API.delete(`/entities/${id}`),
 };
 
 // Assignments
 export const assignmentAPI = {
-  listAll: () => API.get('/assignments'),
-  listByPod: (podId: number) => API.get(`/pods/${podId}/assignments`),
+  listAll: () => API.get<PodAssignment[]>('/assignments'),
+  listByPod: (podId: number) => API.get<PodAssignment[]>(`/pods/${podId}/assignments`),
   create: (podId: number, data: { entityId: number; roleTag?: string }) =>
-    API.post(`/pods/${podId}/assignments`, data),
+    API.post<PodAssignment>(`/pods/${podId}/assignments`, data),
   delete: (id: number) => API.delete(`/assignments/${id}`),
 };

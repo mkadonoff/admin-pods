@@ -1,138 +1,128 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import './App.css';
 import arpogeLogo from './assets/arpoge-logo.png';
 import { FloorManager } from './components/FloorManager';
 import { LayoutView } from './components/LayoutView';
 import { PodDetailDrawer } from './components/PodDetailDrawer';
 import { EntityLibrary } from './components/EntityLibrary';
-import { floorAPI } from './api';
-
-interface Floor {
-  floorId: number;
-  name: string;
-  orderIndex: number;
-}
-
-interface LayoutPod {
-  podId: number;
-  ringId: number;
-  slotIndex: number;
-}
-
-interface LayoutRing {
-  ringId: number;
-  radiusIndex: number;
-}
+import { floorAPI, assemblyAPI, Assembly, Floor } from './api';
 
 function App() {
-  const [selectedFloor, setSelectedFloor] = useState<number | null>(null);
-  const [selectedPod, setSelectedPod] = useState<number | null>(null);
-  const [assignmentsVersion, setAssignmentsVersion] = useState(0);
+  // Assembly state
+  const [assemblies, setAssemblies] = useState<Assembly[]>([]);
+  const [activeAssemblyId, setActiveAssemblyId] = useState<number | null>(null);
+  const [newAssemblyName, setNewAssemblyName] = useState('');
+
+  // Floor state (all floors from all assemblies)
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [layoutPods, setLayoutPods] = useState<LayoutPod[]>([]);
-  const [layoutRings, setLayoutRings] = useState<LayoutRing[]>([]);
+  const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
+  const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
+  const [assignmentsVersion, setAssignmentsVersion] = useState(0);
 
-  const floorsSorted = useMemo(() => {
-    return [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
-  }, [floors]);
-
-  const selectedFloorIndex = useMemo(() => {
-    if (!selectedFloor) return 0;
-    const idx = floorsSorted.findIndex((f) => f.floorId === selectedFloor);
-    return idx >= 0 ? idx : 0;
-  }, [floorsSorted, selectedFloor]);
-
-  const refreshFloors = async () => {
+  // Load assemblies
+  const refreshAssemblies = useCallback(async () => {
     try {
-      const response = await floorAPI.list();
+      const response = await assemblyAPI.list();
+      setAssemblies(response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to load assemblies', error);
+      return [];
+    }
+  }, []);
+
+  // Load floors for all assemblies
+  const refreshFloors = useCallback(async (assemblyIds: number[]) => {
+    if (assemblyIds.length === 0) {
+      setFloors([]);
+      return;
+    }
+    try {
+      const response = await floorAPI.list(assemblyIds);
       setFloors(response.data);
     } catch (error) {
       console.error('Failed to load floors', error);
     }
-  };
-
-  useEffect(() => {
-    refreshFloors();
   }, []);
 
+  // Initial load
   useEffect(() => {
-    // When floor changes, clear selected pod (pod belongs to previous floor).
-    setSelectedPod(null);
-  }, [selectedFloor]);
+    (async () => {
+      const loadedAssemblies = await refreshAssemblies();
+      if (loadedAssemblies.length > 0) {
+        const ids = loadedAssemblies.map((a: Assembly) => a.assemblyId);
+        setActiveAssemblyId(ids[0]);
+        await refreshFloors(ids);
+      }
+    })();
+  }, []);
 
+  // Reload floors when assemblies change
   useEffect(() => {
-    const onKeyDown = async (event: KeyboardEvent) => {
-      const active = document.activeElement as HTMLElement | null;
-      const tag = active?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+    if (assemblies.length > 0) {
+      const ids = assemblies.map((a) => a.assemblyId);
+      refreshFloors(ids);
+    }
+  }, [assemblies, refreshFloors]);
 
-      if (!event.key.startsWith('Arrow')) return;
-      event.preventDefault();
+  // Create new assembly
+  const handleCreateAssembly = async () => {
+    const name = newAssemblyName.trim();
+    if (!name) {
+      alert('Please enter an assembly name');
+      return;
+    }
+    try {
+      const response = await assemblyAPI.create(name);
+      setNewAssemblyName('');
+      await refreshAssemblies();
+      setActiveAssemblyId(response.data.assemblyId);
+    } catch (error: any) {
+      console.error('Failed to create assembly', error);
+      alert(error.response?.data?.error || 'Failed to create assembly');
+    }
+  };
 
-      // Ensure we have an up-to-date floor list for navigation.
-      if (floorsSorted.length === 0) {
-        await refreshFloors();
+  // Delete assembly
+  const handleDeleteAssembly = async (assemblyId: number) => {
+    const assembly = assemblies.find((a) => a.assemblyId === assemblyId);
+    if (!confirm(`Delete assembly "${assembly?.name}"? This will delete all floors and pods.`)) return;
+    try {
+      await assemblyAPI.delete(assemblyId);
+      if (activeAssemblyId === assemblyId) {
+        setActiveAssemblyId(assemblies.find((a) => a.assemblyId !== assemblyId)?.assemblyId ?? null);
       }
+      await refreshAssemblies();
+    } catch (error) {
+      console.error('Failed to delete assembly', error);
+      alert('Failed to delete assembly');
+    }
+  };
 
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-        const list = floorsSorted.length ? floorsSorted : [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
-        if (list.length === 0) return;
-
-        const currentIndex = selectedFloor ? list.findIndex((f) => f.floorId === selectedFloor) : -1;
-        const nextIndex = event.key === 'ArrowUp' ? Math.max(0, currentIndex - 1) : Math.min(list.length - 1, currentIndex + 1);
-        const nextFloor = list[nextIndex] ?? list[0];
-        setSelectedFloor(nextFloor.floorId);
-        return;
-      }
-
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        if (!selectedFloor) return;
-        if (layoutPods.length === 0) return;
-
-        const dir = event.key === 'ArrowLeft' ? -1 : 1;
-
-        const ringById = new Map<number, number>(layoutRings.map((r) => [r.ringId, r.radiusIndex]));
-
-        const sortPods = (pods: LayoutPod[]) => {
-          return [...pods].sort((a, b) => {
-            const ra = ringById.get(a.ringId) ?? 999;
-            const rb = ringById.get(b.ringId) ?? 999;
-            if (ra !== rb) return ra - rb;
-            return a.slotIndex - b.slotIndex;
-          });
-        };
-
-        if (!selectedPod) {
-          const first = sortPods(layoutPods)[0];
-          if (first) setSelectedPod(first.podId);
-          return;
-        }
-
-        const currentPod = layoutPods.find((p) => p.podId === selectedPod);
-        if (!currentPod) {
-          const first = sortPods(layoutPods)[0];
-          if (first) setSelectedPod(first.podId);
-          return;
-        }
-
-        const sameRingPods = layoutPods
-          .filter((p) => p.ringId === currentPod.ringId)
-          .sort((a, b) => a.slotIndex - b.slotIndex);
-
-        if (sameRingPods.length === 0) return;
-
-        const idx = sameRingPods.findIndex((p) => p.podId === currentPod.podId);
-        const nextIdx = (idx + dir + sameRingPods.length) % sameRingPods.length;
-        setSelectedPod(sameRingPods[nextIdx].podId);
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [floors, floorsSorted, layoutPods, layoutRings, selectedFloor, selectedPod]);
+  // Rename assembly
+  const handleRenameAssembly = async (assemblyId: number, newName: string) => {
+    try {
+      await assemblyAPI.update(assemblyId, newName);
+      await refreshAssemblies();
+    } catch (error: any) {
+      console.error('Failed to rename assembly', error);
+      alert(error.response?.data?.error || 'Failed to rename assembly');
+    }
+  };
 
   const notifyAssignmentsChanged = () => {
     setAssignmentsVersion((v) => v + 1);
+    // Refresh floors to get updated assignment data
+    if (assemblies.length > 0) {
+      refreshFloors(assemblies.map((a) => a.assemblyId));
+    }
+  };
+
+  const handleFloorsChanged = () => {
+    if (assemblies.length > 0) {
+      refreshFloors(assemblies.map((a) => a.assemblyId));
+    }
+    refreshAssemblies(); // Update floor counts
   };
 
   return (
@@ -151,32 +141,51 @@ function App() {
           <img src={arpogeLogo} alt="Arpoge" style={{ height: '28px', width: 'auto' }} />
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
             <div style={{ fontSize: '16px', fontWeight: 700 }}>Entity Admin Console</div>
-            <div style={{ fontSize: '12px', color: '#666' }}>v0.1</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>v0.2</div>
           </div>
         </div>
-        <div />
+
+        {/* Assembly controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="text"
+            placeholder="New assembly name"
+            value={newAssemblyName}
+            onChange={(e) => setNewAssemblyName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateAssembly()}
+            style={{ padding: '4px 8px', width: '140px' }}
+          />
+          <button onClick={handleCreateAssembly} style={{ padding: '4px 10px' }}>
+            + Assembly
+          </button>
+        </div>
       </header>
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <FloorManager onFloorSelect={setSelectedFloor} />
-        {selectedFloor && (
-          <>
-            <LayoutView
-              floorId={selectedFloor}
-              onPodSelect={setSelectedPod}
-              assignmentsVersion={assignmentsVersion}
-              floorIndex={selectedFloorIndex}
-              onLayoutData={(pods, rings) => {
-                setLayoutPods(pods);
-                setLayoutRings(rings);
-              }}
-            />
-            <EntityLibrary />
-          </>
-        )}
+        <FloorManager
+          assemblies={assemblies}
+          floors={floors}
+          activeAssemblyId={activeAssemblyId}
+          selectedFloorId={selectedFloorId}
+          onSelectAssembly={setActiveAssemblyId}
+          onSelectFloor={setSelectedFloorId}
+          onDeleteAssembly={handleDeleteAssembly}
+          onRenameAssembly={handleRenameAssembly}
+          onFloorsChanged={handleFloorsChanged}
+        />
+        <LayoutView
+          assemblies={assemblies}
+          floors={floors}
+          activeAssemblyId={activeAssemblyId}
+          selectedFloorId={selectedFloorId}
+          selectedPodId={selectedPodId}
+          onPodSelect={setSelectedPodId}
+          assignmentsVersion={assignmentsVersion}
+        />
+        <EntityLibrary />
         <PodDetailDrawer
-          podId={selectedPod}
-          onClose={() => setSelectedPod(null)}
+          podId={selectedPodId}
+          onClose={() => setSelectedPodId(null)}
           onAssignmentsChanged={notifyAssignmentsChanged}
         />
       </div>

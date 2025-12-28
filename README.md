@@ -85,6 +85,22 @@ npm run dev
 
 Server runs on `http://localhost:5173`, proxies API calls to `http://localhost:3000`.
 
+## Start both servers (Windows)
+
+From the repo root:
+
+```powershell
+./start-dev.ps1
+```
+
+Or:
+
+```powershell
+./start-dev.bat
+```
+
+This starts both dev servers and opens the React app.
+
 ## API Endpoints
 
 ### Floors

@@ -4,8 +4,8 @@ import { assignmentAPI, entityAPI } from '../api';
 interface Assignment {
   assignmentId: number;
   entityId: number;
-  roleTag?: string;
-  entity: { displayName: string };
+  roleTag?: string | null;
+  entity?: { displayName: string };
 }
 
 interface Entity {
@@ -101,6 +101,9 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
   const globalAssignedEntityIds = new Set(allAssignments.map(a => a.entityId));
   const availableEntities = entities.filter(e => !globalAssignedEntityIds.has(e.entityId));
 
+  // Don't render if no pod is selected
+  if (!podId) return null;
+
   return (
     <div
       style={{
@@ -184,7 +187,7 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
               }}
             >
               <div>
-                <div style={{ fontWeight: 'bold' }}>{a.entity.displayName}</div>
+                <div style={{ fontWeight: 'bold' }}>{a.entity?.displayName || 'Unknown'}</div>
                 {a.roleTag && <div style={{ fontSize: '12px', color: '#666' }}>{a.roleTag}</div>}
               </div>
               <button

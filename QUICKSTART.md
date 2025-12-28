@@ -57,6 +57,22 @@ npm run dev
 
 Open `http://localhost:5173`
 
+## One-command startup (Windows)
+
+From the repo root:
+
+```powershell
+./start-dev.ps1
+```
+
+Or:
+
+```powershell
+./start-dev.bat
+```
+
+This starts both servers and opens `http://localhost:5173`.
+
 ## 4. Test the App
 
 1. Click "Add Floor" → type "Floor 1" → Add

@@ -4,11 +4,41 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 
 export default function createFloorRoutes(prisma: PrismaClient) {
-  // GET /floors
+  // GET /floors?assemblyIds=1,2,3 - get floors for specified assemblies
   router.get('/', async (req: Request, res: Response) => {
     try {
+      const { assemblyIds } = req.query;
+
+      let where: any = {};
+      if (assemblyIds && typeof assemblyIds === 'string') {
+        const ids = assemblyIds
+          .split(',')
+          .map((id) => parseInt(id.trim()))
+          .filter((id) => !isNaN(id));
+        if (ids.length > 0) {
+          where = { assemblyId: { in: ids } };
+        }
+      }
+
       const floors = await prisma.floor.findMany({
-        orderBy: { orderIndex: 'asc' },
+        where,
+        orderBy: [{ assemblyId: 'asc' }, { orderIndex: 'asc' }],
+        include: {
+          assembly: { select: { assemblyId: true, name: true } },
+          rings: {
+            orderBy: { radiusIndex: 'asc' },
+            include: {
+              pods: {
+                orderBy: { slotIndex: 'asc' },
+                include: {
+                  assignments: {
+                    include: { entity: true },
+                  },
+                },
+              },
+            },
+          },
+        },
       });
       res.json(floors);
     } catch (error) {
@@ -16,12 +46,22 @@ export default function createFloorRoutes(prisma: PrismaClient) {
     }
   });
 
-  // POST /floors
+  // POST /floors - create floor (requires assemblyId)
   router.post('/', async (req: Request, res: Response) => {
     try {
-      const { name, orderIndex } = req.body;
+      const { name, orderIndex, assemblyId } = req.body;
+      if (!assemblyId) {
+        return res.status(400).json({ error: 'assemblyId is required' });
+      }
       const floor = await prisma.floor.create({
-        data: { name, orderIndex },
+        data: {
+          name,
+          orderIndex: orderIndex ?? 0,
+          assemblyId: parseInt(assemblyId),
+        },
+        include: {
+          assembly: { select: { assemblyId: true, name: true } },
+        },
       });
       res.status(201).json(floor);
     } catch (error) {
@@ -37,6 +77,9 @@ export default function createFloorRoutes(prisma: PrismaClient) {
       const floor = await prisma.floor.update({
         where: { floorId: parseInt(id) },
         data: { ...(name && { name }), ...(orderIndex !== undefined && { orderIndex }) },
+        include: {
+          assembly: { select: { assemblyId: true, name: true } },
+        },
       });
       res.json(floor);
     } catch (error) {

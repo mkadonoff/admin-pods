@@ -9,6 +9,7 @@ import createRingRoutes from './routes/rings';
 import createPodRoutes from './routes/pods';
 import createEntityRoutes from './routes/entities';
 import createAssignmentRoutes from './routes/assignments';
+import createAssemblyRoutes from './routes/assemblies';
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.use('/', createRingRoutes(prisma));
 app.use('/', createPodRoutes(prisma));
 app.use('/', createEntityRoutes(prisma));
 app.use('/', createAssignmentRoutes(prisma));
+app.use('/assemblies', createAssemblyRoutes(prisma));
 
 // Health check
 app.get('/health', (req, res) => {

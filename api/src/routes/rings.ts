@@ -76,10 +76,13 @@ export default function createRingRoutes(prisma: PrismaClient) {
   router.patch('/rings/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name } = req.body;
+      const { name, radiusIndex } = req.body;
+      const data: any = {};
+      if (name !== undefined) data.name = name;
+      if (radiusIndex !== undefined) data.radiusIndex = radiusIndex;
       const ring = await prisma.ring.update({
         where: { ringId: parseInt(id) },
-        data: { ...(name && { name }) },
+        data,
       });
       res.json(ring);
     } catch (error) {
