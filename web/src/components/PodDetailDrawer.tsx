@@ -16,11 +16,13 @@ interface Entity {
 
 interface PodDetailDrawerProps {
   podId: number | null;
+  assemblyName?: string;
+  floorName?: string;
   onClose: () => void;
   onAssignmentsChanged?: () => void;
 }
 
-export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose, onAssignmentsChanged }) => {
+export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, assemblyName, floorName, onClose, onAssignmentsChanged }) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -112,31 +114,93 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
         top: 0,
         width: '300px',
         height: '100vh',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: 'var(--bg-surface)',
         padding: '20px',
-        boxShadow: '-2px 0 5px rgba(0,0,0,0.1)',
+        boxShadow: '-4px 0 20px rgba(0,0,0,0.1)',
         overflowY: 'auto',
         zIndex: 1000,
+        borderLeft: '1px solid var(--border)',
       }}
     >
-      <button onClick={onClose} style={{ float: 'right' }}>
+      <button 
+        onClick={onClose} 
+        style={{ 
+          float: 'right',
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+          padding: '4px 8px',
+        }}
+      >
         ✕
       </button>
-      <h3>Pod Details</h3>
+      <h3 style={{ 
+        color: 'var(--text)', 
+        fontSize: '14px', 
+        fontWeight: 600,
+        marginBottom: '16px',
+        paddingBottom: '10px',
+        borderBottom: '1px solid var(--border)',
+      }}>Pod Details</h3>
+      
+      {/* Assembly & Floor Info */}
+      <div style={{ 
+        marginBottom: '16px', 
+        padding: '10px', 
+        backgroundColor: 'var(--bg-elevated)', 
+        borderRadius: '4px',
+        border: '1px solid var(--border)',
+        fontFamily: "'Consolas', monospace",
+        fontSize: '11px',
+      }}>
+        <div style={{ marginBottom: '4px' }}>
+          <span style={{ color: 'var(--text-muted)' }}>Assembly:</span>{' '}
+          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{assemblyName || '—'}</span>
+        </div>
+        <div>
+          <span style={{ color: 'var(--text-muted)' }}>Floor:</span>{' '}
+          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{floorName || '—'}</span>
+        </div>
+      </div>
+
       <input
         type="text"
         placeholder="Pod name"
         value={podName}
         onChange={(e) => setPodName(e.target.value)}
-        style={{ width: '100%', padding: '5px', marginBottom: '15px', boxSizing: 'border-box' }}
+        style={{ 
+          width: '100%', 
+          padding: '8px 10px', 
+          marginBottom: '16px', 
+          boxSizing: 'border-box',
+          backgroundColor: 'var(--bg-primary)',
+          border: '1px solid var(--border)',
+          color: 'var(--text)',
+          borderRadius: '4px',
+        }}
       />
 
-      <h4>Assign Entity</h4>
-      <div style={{ marginBottom: '15px' }}>
+      <h4 style={{ 
+        color: 'var(--accent)', 
+        fontSize: '12px', 
+        fontWeight: 600, 
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '10px',
+      }}>Assign Entity</h4>
+      <div style={{ marginBottom: '16px' }}>
         <select
           value={selectedEntityId}
           onChange={(e) => setSelectedEntityId(e.target.value ? parseInt(e.target.value) : '')}
-          style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
+          style={{ 
+            width: '100%', 
+            padding: '8px', 
+            marginBottom: '8px',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            borderRadius: '4px',
+          }}
         >
           <option value="">-- Select Entity --</option>
           {availableEntities.map((e) => (
@@ -150,56 +214,75 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, onClose
           placeholder="Role (optional)"
           value={roleTag}
           onChange={(e) => setRoleTag(e.target.value)}
-          style={{ width: '100%', padding: '8px', marginBottom: '8px' }}
+          style={{ 
+            width: '100%', 
+            padding: '8px', 
+            marginBottom: '10px',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            borderRadius: '4px',
+            boxSizing: 'border-box',
+          }}
         />
         <button
           onClick={handleAssignEntity}
           style={{
             width: '100%',
-            padding: '8px',
-            backgroundColor: '#4CAF50',
+            padding: '10px',
+            backgroundColor: 'var(--accent)',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
+            fontWeight: 600,
           }}
         >
           Assign
         </button>
       </div>
 
-      <h4>Current Assignments</h4>
+      <h4 style={{ 
+        color: 'var(--text-muted)', 
+        fontSize: '11px', 
+        fontWeight: 600, 
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px',
+        marginBottom: '10px',
+      }}>Current Assignments</h4>
       {assignments.length === 0 ? (
-        <p style={{ color: '#666' }}>No assignments yet</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No assignments yet</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {assignments.map((a) => (
             <li
               key={a.assignmentId}
               style={{
-                padding: '8px',
+                padding: '10px',
                 marginBottom: '8px',
-                backgroundColor: 'white',
+                backgroundColor: 'var(--bg-elevated)',
                 borderRadius: '4px',
+                border: '1px solid var(--border)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}
             >
               <div>
-                <div style={{ fontWeight: 'bold' }}>{a.entity?.displayName || 'Unknown'}</div>
-                {a.roleTag && <div style={{ fontSize: '12px', color: '#666' }}>{a.roleTag}</div>}
+                <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>{a.entity?.displayName || 'Unknown'}</div>
+                {a.roleTag && <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: "'Consolas', monospace" }}>{a.roleTag}</div>}
               </div>
               <button
                 onClick={() => handleDeleteAssignment(a.assignmentId)}
                 style={{
-                  padding: '4px 8px',
-                  backgroundColor: '#f44336',
+                  padding: '4px 10px',
+                  backgroundColor: 'var(--danger)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '11px',
+                  fontWeight: 500,
                 }}
               >
                 Remove

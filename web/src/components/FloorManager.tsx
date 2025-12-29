@@ -107,11 +107,27 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   };
 
   return (
-    <div style={{ padding: '20px', borderRight: '1px solid #ccc', width: '280px', overflowY: 'auto' }}>
-      <h2>Assemblies & Floors</h2>
+    <div style={{ 
+      padding: '16px', 
+      borderRight: '1px solid var(--border)', 
+      width: '280px', 
+      overflowY: 'auto',
+      backgroundColor: 'var(--bg-surface)',
+      fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+    }}>
+      <h2 style={{ 
+        color: 'var(--text)', 
+        fontSize: '13px', 
+        fontWeight: 600, 
+        textTransform: 'uppercase', 
+        letterSpacing: '0.5px',
+        marginBottom: '16px',
+        paddingBottom: '8px',
+        borderBottom: '1px solid var(--border)',
+      }}>Assemblies & Floors</h2>
 
       {assemblies.length === 0 && (
-        <p style={{ color: '#666', fontSize: '14px' }}>No assemblies. Create one to get started!</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No assemblies. Create one to get started!</p>
       )}
 
       {assemblies.map((assembly) => {
@@ -124,11 +140,12 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
           <div
             key={assembly.assemblyId}
             style={{
-              marginBottom: '20px',
-              padding: '10px',
-              backgroundColor: isActive ? '#e3f2fd' : '#f5f5f5',
-              borderRadius: '8px',
-              border: isActive ? '2px solid #1976d2' : '1px solid #ddd',
+              marginBottom: '16px',
+              padding: '12px',
+              backgroundColor: isActive ? 'var(--accent-light)' : 'var(--bg-elevated)',
+              borderRadius: '6px',
+              border: isActive ? '2px solid var(--accent)' : '1px solid var(--border)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
           >
             {/* Assembly Header */}
@@ -150,23 +167,24 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                 <>
                   <strong
                     onClick={() => onSelectAssembly(assembly.assemblyId)}
-                    style={{ flex: 1, cursor: 'pointer' }}
+                    style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', fontSize: '12px' }}
                   >
                     {assembly.name}
                   </strong>
-                  <span style={{ fontSize: '12px', color: '#666', marginRight: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px', fontFamily: "'Consolas', monospace" }}>
                     ({assemblyFloors.length} floors)
                   </span>
                   <button
                     onClick={() => handleEditAssembly(assembly.assemblyId, assembly.name)}
                     title="Rename"
+                    style={{ padding: '4px 6px', fontSize: '12px' }}
                   >
                     ✏️
                   </button>
                   <button
                     onClick={() => onDeleteAssembly(assembly.assemblyId)}
                     title="Delete"
-                    style={{ color: '#d32f2f' }}
+                    style={{ color: 'var(--danger)', padding: '4px 6px', fontSize: '12px' }}
                   >
                     🗑️
                   </button>
@@ -181,10 +199,11 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                   key={floor.floorId}
                   style={{
                     marginBottom: '6px',
-                    padding: '6px 8px',
-                    backgroundColor: selectedFloorId === floor.floorId ? '#bbdefb' : '#fff',
+                    padding: '8px 10px',
+                    backgroundColor: selectedFloorId === floor.floorId ? 'var(--accent-light)' : 'var(--bg-surface)',
                     borderRadius: '4px',
-                    border: selectedFloorId === floor.floorId ? '1px solid #1976d2' : '1px solid #ddd',
+                    border: selectedFloorId === floor.floorId ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   {editingFloorId === floor.floorId ? (
@@ -204,23 +223,23 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <span
                         onClick={() => onSelectFloor(floor.floorId)}
-                        style={{ flex: 1, cursor: 'pointer' }}
+                        style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', fontSize: '11px' }}
                       >
                         {floor.name}
                       </span>
-                      <button onClick={() => handleEditFloor(floor.floorId, floor.name)} title="Rename">
+                      <button onClick={() => handleEditFloor(floor.floorId, floor.name)} title="Rename" style={{ padding: '2px 5px', fontSize: '11px' }}>
                         ✏️
                       </button>
-                      <button onClick={() => handleReorder(floor.floorId, 'up')} title="Move up">
+                      <button onClick={() => handleReorder(floor.floorId, 'up')} title="Move up" style={{ padding: '2px 5px', fontSize: '11px' }}>
                         ↑
                       </button>
-                      <button onClick={() => handleReorder(floor.floorId, 'down')} title="Move down">
+                      <button onClick={() => handleReorder(floor.floorId, 'down')} title="Move down" style={{ padding: '2px 5px', fontSize: '11px' }}>
                         ↓
                       </button>
                       <button
                         onClick={() => handleDeleteFloor(floor.floorId, floor.name)}
                         title="Delete"
-                        style={{ color: '#d32f2f' }}
+                        style={{ color: 'var(--danger)', padding: '2px 5px', fontSize: '11px' }}
                       >
                         🗑️
                       </button>
@@ -232,16 +251,30 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
             {/* Add floor (only for active assembly) */}
             {isActive && (
-              <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
                 <input
                   type="text"
                   placeholder="New floor name"
                   value={newFloorName}
                   onChange={(e) => setNewFloorName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddFloor()}
-                  style={{ flex: 1, padding: '4px 8px' }}
+                  style={{ 
+                    flex: 1, 
+                    padding: '6px 8px',
+                    fontSize: '12px',
+                  }}
                 />
-                <button onClick={handleAddFloor}>+ Floor</button>
+                <button 
+                  onClick={handleAddFloor}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: 'var(--accent)',
+                    border: '1px solid var(--accent)',
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                  }}
+                >+ Floor</button>
               </div>
             )}
           </div>

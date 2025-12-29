@@ -1,45 +1,84 @@
 :root {
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Professional Blue/Gray Theme */
+  --bg-primary: #f0f2f5;
+  --bg-surface: #ffffff;
+  --bg-elevated: #fafbfc;
+  --bg-sidebar: #f6f8fa;
+  --bg-card: #ffffff;
+  --border: #d0d7de;
+  --border-light: #e1e4e8;
+  --border-accent: #0078d4;
+  --accent: #0078d4;
+  --accent-hover: #106ebe;
+  --accent-light: #deecf9;
+  --accent-muted: #5a9bd5;
+  --success: #107c10;
+  --warning: #ffb900;
+  --danger: #d13438;
+  --danger-hover: #a52a2d;
+  --text: #24292f;
+  --text-muted: #57606a;
+  --text-dim: #8b949e;
+
+  color: var(--text);
+  background-color: var(--bg-primary);
+}
+
+/* Sans-serif for UI, mono utility for technical values */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+    'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+}
+
+.mono, code, .technical {
+  font-family: 'Consolas', 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
 }
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--accent);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--accent-hover);
 }
 
 button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  padding: 0.5em 1em;
+  font-size: 0.875em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--bg-surface);
+  color: var(--text);
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: all 0.15s ease;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--accent);
+  background-color: var(--bg-elevated);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+input, select {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  font-size: 0.875em;
+  background-color: var(--bg-surface);
+  color: var(--text);
+  transition: border-color 0.15s ease;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-light);
+}
+input::placeholder {
+  color: var(--text-dim);
 }
