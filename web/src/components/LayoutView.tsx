@@ -4,8 +4,9 @@ import { Canvas } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 
 const POD_RADIUS = 0.75;
-const POD_HEIGHT = 1.4;
-const FLOOR_SPACING = 2.5;
+const POD_HEIGHT = POD_RADIUS * 0.8 * 2;  // 1.2 - matches diameter for 1:1 ratio
+const FLOOR_SPACING = POD_HEIGHT * 1.35;  // brings next floor closer to pod roof
+const FLOOR_RADIUS_SCALE = 2.0; // reduced platform diameter
 const ASSEMBLY_GAP = 3;
 
 // Calculate max ring radius for an assembly
@@ -31,13 +32,39 @@ function PodMesh({
   hasAssignment: boolean;
   onClick: () => void;
 }) {
+  const podColor = isSelected ? '#ffb900' : hasAssignment ? '#107c10' : '#0078d4';
+  const windowColor = '#ffffff';
+  const windowCount = 6;
+  const windowWidth = POD_RADIUS * 0.55;
+  const windowHeight = POD_HEIGHT * 0.65;
+  const windowOffset = POD_RADIUS * 0.8 - 0.02; // keeps windows slightly inset to avoid z-fighting
+
   return (
-    <mesh position={position} onClick={onClick}>
-      <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
-      <meshStandardMaterial
-        color={isSelected ? '#ffb900' : hasAssignment ? '#107c10' : '#0078d4'}
-      />
-    </mesh>
+    <group position={position} onClick={onClick}>
+      <mesh>
+        <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
+        <meshStandardMaterial color={podColor} />
+      </mesh>
+      {Array.from({ length: windowCount }).map((_, idx) => {
+        const angle = (idx / windowCount) * Math.PI * 2 + Math.PI / windowCount;
+        const x = Math.sin(angle) * windowOffset;
+        const z = Math.cos(angle) * windowOffset;
+        return (
+          <mesh key={idx} position={[x, 0, z]} rotation={[0, angle, 0]}>
+            <planeGeometry args={[windowWidth, windowHeight]} />
+            <meshStandardMaterial
+              color={windowColor}
+              transparent
+              opacity={0.35}
+              metalness={0.1}
+              roughness={0.2}
+              emissive={windowColor}
+              emissiveIntensity={0.05}
+            />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
@@ -102,18 +129,26 @@ function FloorMesh({
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
+  const floorRadius = getAssemblyMaxRadius([floor]) * FLOOR_RADIUS_SCALE;
 
   return (
     <group>
       {/* Floor platform */}
       <mesh position={[assemblyX, floorY - 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[getAssemblyMaxRadius([floor]) * 2.5, 32]} />
+        <circleGeometry args={[floorRadius, 6]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.9} />
       </mesh>
       {/* Floor edge ring for visibility */}
-      <mesh position={[assemblyX, floorY - 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[getAssemblyMaxRadius([floor]) * 2.5 - 0.05, getAssemblyMaxRadius([floor]) * 2.5, 64]} />
-        <meshStandardMaterial color="#0078d4" transparent opacity={0.8} />
+      <mesh position={[assemblyX, floorY - 0.095, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[Math.max(floorRadius - 0.08, 0), floorRadius, 6]} />
+        <meshStandardMaterial
+          color="#0078d4"
+          transparent
+          opacity={0.8}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          polygonOffsetUnits={-1}
+        />
       </mesh>
       {/* Rings */}
       {rings.map((ring) => (
