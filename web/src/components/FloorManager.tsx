@@ -11,6 +11,7 @@ interface FloorManagerProps {
   onDeleteAssembly: (id: number) => void;
   onRenameAssembly: (id: number, newName: string) => void;
   onFloorsChanged: () => void;
+  variant?: 'sidebar' | 'panel';
 }
 
 export const FloorManager: React.FC<FloorManagerProps> = ({
@@ -23,12 +24,27 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   onDeleteAssembly,
   onRenameAssembly,
   onFloorsChanged,
+  variant = 'sidebar',
 }) => {
   const [newFloorName, setNewFloorName] = useState('');
   const [editingFloorId, setEditingFloorId] = useState<number | null>(null);
   const [editFloorName, setEditFloorName] = useState('');
   const [editingAssemblyId, setEditingAssemblyId] = useState<number | null>(null);
   const [editAssemblyName, setEditAssemblyName] = useState('');
+  const isPanelVariant = variant === 'panel';
+  const containerStyle = {
+    padding: '16px',
+    borderRight: isPanelVariant ? 'none' : '1px solid var(--border)',
+    width: '100%',
+    overflowY: 'auto' as const,
+    backgroundColor: 'var(--bg-surface)',
+    fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+    border: isPanelVariant ? '1px solid var(--border)' : undefined,
+    borderRadius: isPanelVariant ? '10px' : undefined,
+    boxShadow: isPanelVariant ? '0 2px 6px rgba(0,0,0,0.06)' : undefined,
+    height: '100%',
+    boxSizing: 'border-box' as const,
+  };
 
   const handleAddFloor = async () => {
     if (!newFloorName || !activeAssemblyId) return;
@@ -107,14 +123,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   };
 
   return (
-    <div style={{ 
-      padding: '16px', 
-      borderRight: '1px solid var(--border)', 
-      width: '280px', 
-      overflowY: 'auto',
-      backgroundColor: 'var(--bg-surface)',
-      fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
-    }}>
+    <div style={containerStyle}>
       <h2 style={{ 
         color: 'var(--text)', 
         fontSize: '13px', 

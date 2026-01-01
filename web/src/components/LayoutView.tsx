@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ringAPI, Assembly, Floor, Ring } from '../api';
+import { Assembly, Floor, Ring } from '../api';
 import { Canvas } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 
@@ -256,26 +256,15 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   assemblies,
   floors,
   activeAssemblyId: _activeAssemblyId,
-  selectedFloorId,
+  selectedFloorId: _selectedFloorId,
   selectedPodId,
   onPodSelect,
   assignmentsVersion: _assignmentsVersion,
-  onLayoutChanged,
+  onLayoutChanged: _onLayoutChanged,
   presencePodId,
 }) => {
-  // Ring creation state (for selected floor)
-  const [newRingName, setNewRingName] = useState('');
-  const [newRingRadius, setNewRingRadius] = useState(0);
-  const [newRingSlots, setNewRingSlots] = useState(1);
-
-  // Ring editing state
-  const [editingRingId, setEditingRingId] = useState<number | null>(null);
-  const [editRingName, setEditRingName] = useState('');
-  const [editRingRadius, setEditRingRadius] = useState(0);
   const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
   const [cameraInitialized, setCameraInitialized] = useState(false);
-
-  const selectedFloor = floors.find((f) => f.floorId === selectedFloorId);
 
   // Calculate X offsets for each assembly based on max ring radius
   const assemblyOffsets = useMemo(() => {
@@ -318,69 +307,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }
   }, [assemblies.length, idealCameraPosition, cameraInitialized]);
 
-  const handleCreateRing = async () => {
-    if (!selectedFloorId || !newRingName) {
-      alert('Please select a floor and enter a ring name');
-      return;
-    }
-    try {
-      await ringAPI.create(selectedFloorId, {
-        name: newRingName,
-        radiusIndex: newRingRadius,
-        slots: newRingSlots,
-      });
-      setNewRingName('');
-      setNewRingRadius(0);
-      setNewRingSlots(1);
-      // Trigger refresh via parent
-      onLayoutChanged?.();
-    } catch (error: any) {
-      console.error('Failed to create ring:', error);
-      alert(`Error creating ring: ${error.response?.data?.error || error.message}`);
-    }
-  };
-
-  const handleEditRing = (ring: Ring) => {
-    setEditingRingId(ring.ringId);
-    setEditRingName(ring.name);
-    setEditRingRadius(ring.radiusIndex);
-  };
-
-  const handleSaveRingEdit = async () => {
-    if (!editingRingId || !editRingName.trim()) return;
-    try {
-      await ringAPI.update(editingRingId, { 
-        name: editRingName.trim(),
-        radiusIndex: editRingRadius,
-      });
-      setEditingRingId(null);
-      setEditRingName('');
-      setEditRingRadius(0);
-      onLayoutChanged?.();
-    } catch (error: any) {
-      console.error('Failed to update ring:', error);
-      alert(`Error updating ring: ${error.response?.data?.error || error.message}`);
-    }
-  };
-
-  const handleDeleteRing = async (ringId: number, ringName: string) => {
-    if (!window.confirm(`Delete ring "${ringName}"? This will delete all pods in this ring.`)) {
-      return;
-    }
-    try {
-      await ringAPI.delete(ringId);
-      onLayoutChanged?.();
-    } catch (error: any) {
-      console.error('Failed to delete ring:', error);
-      alert(`Error deleting ring: ${error.response?.data?.error || error.message}`);
-    }
-  };
-
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', overflow: 'hidden' }}>
       {/* 3D View */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0, backgroundColor: '#e8eef3' }}>
-        <Canvas camera={{ position: cameraPosition, fov: 50 }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e8eef3' }}>
+        <Canvas camera={{ position: cameraPosition, fov: 50 }} style={{ width: '100%', height: '100%' }}>
           <color attach="background" args={['#e8eef3']} />
           <OrbitControls makeDefault enablePan enableZoom enableRotate />
           <ambientLight intensity={0.7} />
@@ -439,191 +370,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         </div>
       </div>
 
-      {/* Ring Creation Panel (only when floor is selected) */}
-      {selectedFloor && (
-        <div
-          style={{
-            padding: '16px 20px',
-            borderTop: '2px solid var(--accent)',
-            backgroundColor: 'var(--bg-surface)',
-            flexShrink: 0,
-            maxHeight: '40vh',
-            overflowY: 'auto',
-            boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
-          }}
-        >
-          <strong style={{ color: 'var(--text)' }}>Floor: {selectedFloor.name}</strong>
-
-          {/* Existing Rings */}
-          {selectedFloor.rings && selectedFloor.rings.length > 0 ? (
-            <div style={{ marginTop: '12px', marginBottom: '12px' }}>
-              <div style={{ fontWeight: 500, marginBottom: '8px', color: 'var(--text-muted)', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Rings:</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {selectedFloor.rings.map((ring) => (
-                  <div
-                    key={ring.ringId}
-                    style={{
-                      padding: '8px 12px',
-                      backgroundColor: 'var(--bg-elevated)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '6px',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                    }}
-                  >
-                    {editingRingId === ring.ringId ? (
-                      <>
-                        <input
-                          type="text"
-                          value={editRingName}
-                          onChange={(e) => setEditRingName(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleSaveRingEdit()}
-                          style={{ width: '80px', padding: '4px' }}
-                          placeholder="Name"
-                          autoFocus
-                        />
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)' }}>
-                          r:
-                          <input
-                            type="number"
-                            min="0"
-                            value={editRingRadius}
-                            onChange={(e) => setEditRingRadius(parseInt(e.target.value) || 0)}
-                            style={{ width: '45px', padding: '4px' }}
-                          />
-                        </label>
-                        <span style={{ color: 'var(--text-dim)', fontSize: '11px', fontFamily: "'Consolas', monospace" }}>
-                          {ring.slots} slots (fixed)
-                        </span>
-                        <button onClick={handleSaveRingEdit} style={{ padding: '2px 6px' }}>✓</button>
-                        <button onClick={() => setEditingRingId(null)} style={{ padding: '2px 6px' }}>✕</button>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ flex: 1 }}>
-                          <strong style={{ color: 'var(--text)' }}>{ring.name}</strong>
-                          <span style={{ color: 'var(--text-muted)', marginLeft: '6px', fontFamily: "'Consolas', monospace", fontSize: '11px' }}>
-                            r{ring.radiusIndex} · {ring.slots} slots · {ring.pods?.length || 0} pods
-                          </span>
-                          {/* Pod buttons */}
-                          {ring.pods && ring.pods.length > 0 && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
-                              {ring.pods
-                                .slice()
-                                .sort((a, b) => a.slotIndex - b.slotIndex)
-                                .map((pod) => {
-                                  const hasAssignment = (pod.assignments?.length ?? 0) > 0;
-                                  const isSelected = selectedPodId === pod.podId;
-                                  return (
-                                    <button
-                                      key={pod.podId}
-                                      onClick={() => onPodSelect(pod.podId)}
-                                      title={`Pod ${pod.slotIndex === -1 ? 'C' : pod.slotIndex}${hasAssignment ? ' (assigned)' : ''}`}
-                                      style={{
-                                        width: '24px',
-                                        height: '24px',
-                                        padding: 0,
-                                        border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                        borderRadius: '4px',
-                                        backgroundColor: isSelected ? '#ffb900' : hasAssignment ? '#107c10' : '#0078d4',
-                                        color: 'white',
-                                        fontSize: '10px',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        fontFamily: "'Consolas', monospace",
-                                      }}
-                                    >
-                                      {pod.slotIndex === -1 ? 'C' : pod.slotIndex}
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => handleEditRing(ring)}
-                          style={{ padding: '2px 6px', marginLeft: '4px', fontSize: '11px' }}
-                          title="Edit ring"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRing(ring.ringId, ring.name)}
-                          style={{ padding: '2px 6px', color: 'var(--danger)', fontSize: '11px' }}
-                          title="Delete ring"
-                        >
-                          🗑️
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div style={{ marginTop: '10px', color: 'var(--text-muted)', fontSize: '12px' }}>
-              No rings yet. Add one below.
-            </div>
-          )}
-
-          {/* Add Ring Form */}
-          <div style={{ display: 'flex', gap: '10px', marginTop: '12px', alignItems: 'center', padding: '12px', backgroundColor: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border)' }}>
-            <input
-              type="text"
-              placeholder="Ring name"
-              value={newRingName}
-              onChange={(e) => setNewRingName(e.target.value)}
-              style={{ 
-                padding: '6px 10px', 
-                width: '120px',
-              }}
-            />
-            <label style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-              Radius:
-              <input
-                type="number"
-                min="0"
-                value={newRingRadius}
-                onChange={(e) => setNewRingRadius(parseInt(e.target.value) || 0)}
-                style={{ 
-                  width: '50px', 
-                  marginLeft: '4px', 
-                  padding: '6px',
-                }}
-              />
-            </label>
-            <label style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-              Slots:
-              <input
-                type="number"
-                min="1"
-                value={newRingSlots}
-                onChange={(e) => setNewRingSlots(parseInt(e.target.value) || 1)}
-                style={{ 
-                  width: '50px', 
-                  marginLeft: '4px', 
-                  padding: '6px',
-                }}
-              />
-            </label>
-            <button 
-              onClick={handleCreateRing} 
-              style={{ 
-                padding: '6px 12px',
-                backgroundColor: 'var(--accent)',
-                border: '1px solid var(--accent)',
-                color: 'white',
-                fontWeight: 600,
-              }}
-            >
-              + Ring
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

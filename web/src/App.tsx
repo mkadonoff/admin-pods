@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import './App.css';
 import arpogeLogo from './assets/arpoge-logo.png';
-import { FloorManager } from './components/FloorManager';
 import { LayoutView } from './components/LayoutView';
-import { PodDetailDrawer } from './components/PodDetailDrawer';
-import { EntityLibrary } from './components/EntityLibrary';
 import { MyPresenceBar } from './components/MyPresenceBar';
+import { ContextPanel } from './components/ContextPanel';
+import { FloorManager } from './components/FloorManager';
+import { EntityLibrary } from './components/EntityLibrary';
 import { floorAPI, assemblyAPI, healthAPI, Assembly, Floor, ApiHealth } from './api';
 
 const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
@@ -183,6 +183,17 @@ function App() {
     refreshAssemblies(); // Update floor counts
   };
 
+  const handleSelectFloor = (floorId: number) => {
+    setSelectedFloorId(floorId);
+    setSelectedPodId(null);
+  };
+
+  const handleSelectAssembly = (assemblyId: number) => {
+    setActiveAssemblyId(assemblyId);
+    setSelectedFloorId(null);
+    setSelectedPodId(null);
+  };
+
   // Find assembly and floor for selected pod
   const selectedPodInfo = useMemo(() => {
     if (!selectedPodId) {
@@ -320,38 +331,79 @@ function App() {
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <FloorManager
-          assemblies={assemblies}
-          floors={floors}
-          activeAssemblyId={activeAssemblyId}
-          selectedFloorId={selectedFloorId}
-          onSelectAssembly={setActiveAssemblyId}
-          onSelectFloor={setSelectedFloorId}
-          onDeleteAssembly={handleDeleteAssembly}
-          onRenameAssembly={handleRenameAssembly}
-          onFloorsChanged={handleFloorsChanged}
-        />
-        <LayoutView
-          assemblies={assemblies}
-          floors={floors}
-          activeAssemblyId={activeAssemblyId}
-          selectedFloorId={selectedFloorId}
-          selectedPodId={selectedPodId}
-          onPodSelect={setSelectedPodId}
-          assignmentsVersion={assignmentsVersion}
-          onLayoutChanged={handleFloorsChanged}
-          presencePodId={myPresenceInfo.podId}
-        />
-        <EntityLibrary onEntitiesChanged={notifyEntitiesChanged} />
-        <PodDetailDrawer
-          podId={selectedPodId}
-          assemblyName={selectedPodInfo.assemblyName}
-          floorName={selectedPodInfo.floorName}
-          podName={selectedPodInfo.podName}
-          onClose={() => setSelectedPodId(null)}
-          onAssignmentsChanged={notifyAssignmentsChanged}
-          onPodUpdated={handleFloorsChanged}
-        />
+        <div
+          style={{
+            flex: '0 0 320px',
+            minWidth: '280px',
+            backgroundColor: 'var(--bg-surface)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            padding: '6px 8px',
+            boxSizing: 'border-box',
+          }}
+        >
+          <FloorManager
+            variant="sidebar"
+            assemblies={assemblies}
+            floors={floors}
+            activeAssemblyId={activeAssemblyId}
+            selectedFloorId={selectedFloorId}
+            onSelectAssembly={handleSelectAssembly}
+            onSelectFloor={handleSelectFloor}
+            onDeleteAssembly={handleDeleteAssembly}
+            onRenameAssembly={handleRenameAssembly}
+            onFloorsChanged={handleFloorsChanged}
+          />
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div
+            style={{
+              flex: '0 0 58%',
+              minHeight: 320,
+              borderBottom: '1px solid var(--border)',
+              backgroundColor: 'var(--bg-surface)',
+            }}
+          >
+            <LayoutView
+              assemblies={assemblies}
+              floors={floors}
+              activeAssemblyId={activeAssemblyId}
+              selectedFloorId={selectedFloorId}
+              selectedPodId={selectedPodId}
+              onPodSelect={setSelectedPodId}
+              assignmentsVersion={assignmentsVersion}
+              onLayoutChanged={handleFloorsChanged}
+              presencePodId={myPresenceInfo.podId}
+            />
+          </div>
+          <ContextPanel
+            assemblies={assemblies}
+            floors={floors}
+            selectedFloorId={selectedFloorId}
+            selectedPodId={selectedPodId}
+            selectedPodInfo={selectedPodInfo}
+            onLayoutChanged={handleFloorsChanged}
+            onPodSelect={setSelectedPodId}
+            onAssignmentsChanged={notifyAssignmentsChanged}
+            onPodUpdated={handleFloorsChanged}
+            onClearPodSelection={() => setSelectedPodId(null)}
+          />
+        </div>
+
+        <div
+          style={{
+            flex: '0 0 320px',
+            minWidth: '260px',
+            backgroundColor: 'var(--bg-surface)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <EntityLibrary variant="sidebar" onEntitiesChanged={notifyEntitiesChanged} />
+        </div>
       </div>
     </div>
   );
