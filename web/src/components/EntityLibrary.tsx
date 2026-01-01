@@ -7,7 +7,11 @@ interface Entity {
   entityType: string;
 }
 
-export const EntityLibrary: React.FC = () => {
+interface EntityLibraryProps {
+  onEntitiesChanged?: () => void;
+}
+
+export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged }) => {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -42,6 +46,7 @@ export const EntityLibrary: React.FC = () => {
       setNewEntityType('');
       setNewEntityName('');
       loadEntities();
+      onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to create entity:', error);
       alert(`Error creating entity: ${error.response?.data?.error || error.message}`);
@@ -62,6 +67,7 @@ export const EntityLibrary: React.FC = () => {
       await entityAPI.update(entityId, { displayName: editName });
       setEditingId(null);
       loadEntities();
+      onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to update entity:', error);
       alert(`Error updating entity: ${error.response?.data?.error || error.message}`);
@@ -75,6 +81,7 @@ export const EntityLibrary: React.FC = () => {
     try {
       await entityAPI.delete(entityId);
       loadEntities();
+      onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to delete entity:', error);
       alert(`Error deleting entity: ${error.response?.data?.error || error.message}`);

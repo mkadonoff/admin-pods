@@ -5,7 +5,10 @@ import { FloorManager } from './components/FloorManager';
 import { LayoutView } from './components/LayoutView';
 import { PodDetailDrawer } from './components/PodDetailDrawer';
 import { EntityLibrary } from './components/EntityLibrary';
+import { MyPresenceBar } from './components/MyPresenceBar';
 import { floorAPI, assemblyAPI, healthAPI, Assembly, Floor, ApiHealth } from './api';
+
+const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
 
 function App() {
   const gitCommit = import.meta.env.VITE_GIT_COMMIT;
@@ -20,6 +23,8 @@ function App() {
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
   const [assignmentsVersion, setAssignmentsVersion] = useState(0);
+  const [myPersonEntityId, setMyPersonEntityId] = useState<number | null>(null);
+  const [entityVersion, setEntityVersion] = useState(0);
   const [healthStatus, setHealthStatus] = useState<ApiHealth | null>(null);
   const [healthFailed, setHealthFailed] = useState(false);
 
@@ -60,6 +65,25 @@ function App() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(PRESENCE_STORAGE_KEY);
+    if (!stored) return;
+    const parsed = parseInt(stored, 10);
+    if (!Number.isNaN(parsed)) {
+      setMyPersonEntityId(parsed);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (myPersonEntityId) {
+      window.localStorage.setItem(PRESENCE_STORAGE_KEY, String(myPersonEntityId));
+    } else {
+      window.localStorage.removeItem(PRESENCE_STORAGE_KEY);
+    }
+  }, [myPersonEntityId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +172,10 @@ function App() {
     }
   };
 
+  const notifyEntitiesChanged = () => {
+    setEntityVersion((v) => v + 1);
+  };
+
   const handleFloorsChanged = () => {
     if (assemblies.length > 0) {
       refreshFloors(assemblies.map((a) => a.assemblyId));
@@ -178,6 +206,25 @@ function App() {
 
     return { assemblyName: undefined, floorName: undefined, podName: undefined };
   }, [selectedPodId, floors, assemblies]);
+
+  const myPresenceInfo = useMemo(() => {
+    if (!myPersonEntityId) {
+      return { podId: null as number | null, podName: undefined as string | undefined };
+    }
+
+    for (const floor of floors) {
+      for (const ring of floor.rings || []) {
+        for (const pod of ring.pods || []) {
+          const hasMe = (pod.assignments || []).some((assignment) => assignment.entityId === myPersonEntityId);
+          if (hasMe) {
+            return { podId: pod.podId, podName: pod.name || 'Pod' };
+          }
+        }
+      }
+    }
+
+    return { podId: null as number | null, podName: undefined as string | undefined };
+  }, [myPersonEntityId, floors]);
 
   const apiHealthy = healthStatus?.status === 'ok' && !healthFailed;
   const healthBadgeText = healthFailed
@@ -265,6 +312,13 @@ function App() {
         </div>
       </header>
 
+      <MyPresenceBar
+        selectedEntityId={myPersonEntityId}
+        onSelectEntity={setMyPersonEntityId}
+        podName={myPresenceInfo.podName}
+        refreshKey={entityVersion}
+      />
+
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <FloorManager
           assemblies={assemblies}
@@ -286,8 +340,9 @@ function App() {
           onPodSelect={setSelectedPodId}
           assignmentsVersion={assignmentsVersion}
           onLayoutChanged={handleFloorsChanged}
+          presencePodId={myPresenceInfo.podId}
         />
-        <EntityLibrary />
+        <EntityLibrary onEntitiesChanged={notifyEntitiesChanged} />
         <PodDetailDrawer
           podId={selectedPodId}
           assemblyName={selectedPodInfo.assemblyName}

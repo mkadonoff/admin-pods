@@ -27,13 +27,21 @@ function PodMesh({
   isSelected,
   hasAssignment,
   onClick,
+  isPresencePod = false,
 }: {
   position: [number, number, number];
   isSelected: boolean;
   hasAssignment: boolean;
   onClick: () => void;
+  isPresencePod?: boolean;
 }) {
-  const podColor = isSelected ? '#ffb900' : hasAssignment ? '#107c10' : '#0078d4';
+  const podColor = isPresencePod
+    ? '#c239b3'
+    : isSelected
+      ? '#ffb900'
+      : hasAssignment
+        ? '#107c10'
+        : '#0078d4';
   const windowColor = '#ffffff';
   const windowCount = 6;
   const windowWidth = POD_RADIUS * 0.55;
@@ -46,6 +54,19 @@ function PodMesh({
         <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
         <meshStandardMaterial color={podColor} />
       </mesh>
+      {isPresencePod && (
+        <Text
+          position={[0, POD_HEIGHT * 0.9, 0]}
+          fontSize={0.4}
+          color="#c239b3"
+          anchorX="center"
+          anchorY="bottom"
+          outlineWidth={0.01}
+          outlineColor="#ffffff"
+        >
+          YOU
+        </Text>
+      )}
       {Array.from({ length: windowCount }).map((_, idx) => {
         const angle = (idx / windowCount) * Math.PI * 2 + Math.PI / windowCount;
         const x = Math.sin(angle) * windowOffset;
@@ -76,12 +97,14 @@ function RingMesh({
   assemblyX,
   selectedPodId,
   onPodSelect,
+  presencePodId,
 }: {
   ring: Ring;
   floorY: number;
   assemblyX: number;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
+  presencePodId?: number | null;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -107,6 +130,7 @@ function RingMesh({
             isSelected={selectedPodId === pod.podId}
             hasAssignment={hasAssignment}
             onClick={() => onPodSelect(pod.podId)}
+            isPresencePod={presencePodId === pod.podId}
           />
         );
       })}
@@ -121,12 +145,14 @@ function FloorMesh({
   assemblyX,
   selectedPodId,
   onPodSelect,
+  presencePodId,
 }: {
   floor: Floor;
   floorIndex: number;
   assemblyX: number;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
+  presencePodId?: number | null;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
@@ -160,6 +186,7 @@ function FloorMesh({
           assemblyX={assemblyX}
           selectedPodId={selectedPodId}
           onPodSelect={onPodSelect}
+          presencePodId={presencePodId}
         />
       ))}
     </group>
@@ -173,12 +200,14 @@ function AssemblyMesh({
   xOffset,
   selectedPodId,
   onPodSelect,
+  presencePodId,
 }: {
   assembly: Assembly;
   floors: Floor[];
   xOffset: number;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
+  presencePodId?: number | null;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
   const labelY = sortedFloors.length * FLOOR_SPACING + 1;
@@ -204,6 +233,7 @@ function AssemblyMesh({
           assemblyX={xOffset}
           selectedPodId={selectedPodId}
           onPodSelect={onPodSelect}
+          presencePodId={presencePodId}
         />
       ))}
     </group>
@@ -219,6 +249,7 @@ interface LayoutViewProps {
   onPodSelect: (podId: number) => void;
   assignmentsVersion?: number;
   onLayoutChanged?: () => void;
+  presencePodId?: number | null;
 }
 
 export const LayoutView: React.FC<LayoutViewProps> = ({
@@ -230,6 +261,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   onPodSelect,
   assignmentsVersion: _assignmentsVersion,
   onLayoutChanged,
+  presencePodId,
 }) => {
   // Ring creation state (for selected floor)
   const [newRingName, setNewRingName] = useState('');
@@ -367,6 +399,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                     xOffset={assemblyOffsets[assembly.assemblyId] || 0}
                     selectedPodId={selectedPodId}
                     onPodSelect={onPodSelect}
+                    presencePodId={presencePodId}
                   />
                 );
               })}
