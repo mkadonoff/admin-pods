@@ -24,47 +24,42 @@ export default function createRingRoutes(prisma: PrismaClient) {
       const { floorId } = req.params;
       const { name, radiusIndex, slots } = req.body;
 
-      const ring = await prisma.ring.create({
-        data: {
-          floorId: parseInt(floorId),
-          name,
-          radiusIndex,
-          slots,
-        },
+      const floorIdNumber = parseInt(floorId, 10);
+
+      const ring = await prisma.$transaction(async (tx) => {
+        const createdRing = await tx.ring.create({
+          data: {
+            floorId: floorIdNumber,
+            name,
+            radiusIndex,
+            slots,
+          },
+        });
+
+        const podsData = Array.from({ length: slots }).map((_, idx) => ({
+          floorId: floorIdNumber,
+          ringId: createdRing.ringId,
+          slotIndex: idx,
+          name: `${name} Pod ${idx}`,
+          podType: 'standard',
+        }));
+
+        if (radiusIndex === 0) {
+          podsData.push({
+            floorId: floorIdNumber,
+            ringId: createdRing.ringId,
+            slotIndex: -1,
+            name: `${name} Center`,
+            podType: 'center',
+          });
+        }
+
+        if (podsData.length > 0) {
+          await tx.pod.createMany({ data: podsData });
+        }
+
+        return createdRing;
       });
-
-      // Auto-create pods for each slot
-      const podPromises = [];
-      for (let i = 0; i < slots; i++) {
-        podPromises.push(
-          prisma.pod.create({
-            data: {
-              floorId: parseInt(floorId),
-              ringId: ring.ringId,
-              slotIndex: i,
-              name: `${name} Pod ${i}`,
-              podType: 'standard',
-            },
-          })
-        );
-      }
-
-      // If center ring (radiusIndex=0), create center pod
-      if (radiusIndex === 0) {
-        podPromises.push(
-          prisma.pod.create({
-            data: {
-              floorId: parseInt(floorId),
-              ringId: ring.ringId,
-              slotIndex: -1,
-              name: `${name} Center`,
-              podType: 'center',
-            },
-          })
-        );
-      }
-
-      await Promise.all(podPromises);
 
       res.status(201).json(ring);
     } catch (error) {
