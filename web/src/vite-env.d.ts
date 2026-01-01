@@ -3,6 +3,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_GIT_COMMIT?: string;
+  readonly VITE_API_BASE_URL?: string;
 }
 
 interface ImportMeta {
