@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { assignmentAPI, entityAPI } from '../api';
+import { assignmentAPI, entityAPI, podAPI } from '../api';
 
 interface Assignment {
   assignmentId: number;
@@ -20,15 +20,26 @@ interface PodDetailDrawerProps {
   floorName?: string;
   onClose: () => void;
   onAssignmentsChanged?: () => void;
+  podName?: string;
+  onPodUpdated?: () => void;
 }
 
-export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, assemblyName, floorName, onClose, onAssignmentsChanged }) => {
+export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({
+  podId,
+  assemblyName,
+  floorName,
+  onClose,
+  onAssignmentsChanged,
+  podName,
+  onPodUpdated,
+}) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [podName, setPodName] = useState('');
+  const [podDisplayName, setPodDisplayName] = useState('');
   const [selectedEntityId, setSelectedEntityId] = useState<number | ''>('');
   const [roleTag, setRoleTag] = useState('');
+  const [savingPodName, setSavingPodName] = useState(false);
 
   useEffect(() => {
     if (podId) {
@@ -37,6 +48,14 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, assembl
       loadEntities();
     }
   }, [podId]);
+
+  useEffect(() => {
+    if (podId) {
+      setPodDisplayName(podName ?? '');
+    } else {
+      setPodDisplayName('');
+    }
+  }, [podId, podName]);
 
   const loadAssignments = async () => {
     if (!podId) return;
@@ -98,13 +117,29 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, assembl
     }
   };
 
+  const handleSavePodName = async () => {
+    if (!podId) return;
+    const trimmedName = podDisplayName.trim();
+    if (!trimmedName) {
+      alert('Please enter a pod name');
+      return;
+    }
+    try {
+      setSavingPodName(true);
+      await podAPI.update(podId, { name: trimmedName });
+      onPodUpdated?.();
+    } catch (error: any) {
+      console.error('Failed to update pod name', error);
+      alert(`Error updating pod: ${error.response?.data?.error || error.message}`);
+    } finally {
+      setSavingPodName(false);
+    }
+  };
+
   if (!podId) return null;
 
   const globalAssignedEntityIds = new Set(allAssignments.map(a => a.entityId));
   const availableEntities = entities.filter(e => !globalAssignedEntityIds.has(e.entityId));
-
-  // Don't render if no pod is selected
-  if (!podId) return null;
 
   return (
     <div
@@ -163,22 +198,46 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({ podId, assembl
         </div>
       </div>
 
-      <input
-        type="text"
-        placeholder="Pod name"
-        value={podName}
-        onChange={(e) => setPodName(e.target.value)}
-        style={{ 
-          width: '100%', 
-          padding: '8px 10px', 
-          marginBottom: '16px', 
-          boxSizing: 'border-box',
-          backgroundColor: 'var(--bg-primary)',
-          border: '1px solid var(--border)',
-          color: 'var(--text)',
-          borderRadius: '4px',
-        }}
-      />
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <input
+          type="text"
+          placeholder="Pod name"
+          value={podDisplayName}
+          onChange={(e) => setPodDisplayName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSavePodName();
+            }
+          }}
+          style={{ 
+            flex: 1,
+            padding: '8px 10px', 
+            boxSizing: 'border-box',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            borderRadius: '4px',
+          }}
+        />
+        <button
+          onClick={handleSavePodName}
+          disabled={savingPodName}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'var(--accent)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontWeight: 600,
+            opacity: savingPodName ? 0.7 : 1,
+            minWidth: '72px',
+          }}
+        >
+          {savingPodName ? 'Saving...' : 'Save'}
+        </button>
+      </div>
 
       <h4 style={{ 
         color: 'var(--accent)', 

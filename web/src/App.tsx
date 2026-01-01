@@ -129,18 +129,26 @@ function App() {
 
   // Find assembly and floor for selected pod
   const selectedPodInfo = useMemo(() => {
-    if (!selectedPodId) return { assemblyName: undefined, floorName: undefined };
+    if (!selectedPodId) {
+      return { assemblyName: undefined, floorName: undefined, podName: undefined };
+    }
+
     for (const floor of floors) {
       for (const ring of floor.rings || []) {
         for (const pod of ring.pods || []) {
           if (pod.podId === selectedPodId) {
-            const assembly = assemblies.find(a => a.assemblyId === floor.assemblyId);
-            return { assemblyName: assembly?.name, floorName: floor.name };
+            const assembly = assemblies.find((a) => a.assemblyId === floor.assemblyId);
+            return {
+              assemblyName: assembly?.name,
+              floorName: floor.name,
+              podName: pod.name || '',
+            };
           }
         }
       }
     }
-    return { assemblyName: undefined, floorName: undefined };
+
+    return { assemblyName: undefined, floorName: undefined, podName: undefined };
   }, [selectedPodId, floors, assemblies]);
 
   return (
@@ -230,8 +238,10 @@ function App() {
           podId={selectedPodId}
           assemblyName={selectedPodInfo.assemblyName}
           floorName={selectedPodInfo.floorName}
+          podName={selectedPodInfo.podName}
           onClose={() => setSelectedPodId(null)}
           onAssignmentsChanged={notifyAssignmentsChanged}
+          onPodUpdated={handleFloorsChanged}
         />
       </div>
     </div>
