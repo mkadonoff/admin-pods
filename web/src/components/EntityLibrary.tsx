@@ -156,47 +156,59 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
       }}>Entity Library</h2>
 
       {/* Create Entity */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+      <div style={{ 
+        marginBottom: '16px', 
+        padding: '12px', 
+        border: '1px solid var(--border)', 
+        borderRadius: '6px',
+        backgroundColor: 'var(--bg-elevated)',
+      }}>
+        <h3 style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: 600, marginBottom: '10px', marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add Entity</h3>
         <input
           type="text"
           placeholder="Entity type (e.g., Person, Machine)"
           value={newEntityType}
           onChange={(e) => setNewEntityType(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleCreateEntity()}
-          style={{
-            width: '100%',
-            padding: '6px 8px',
-            fontSize: '12px',
+          style={{ 
+            width: '100%', 
+            marginBottom: '8px', 
+            boxSizing: 'border-box',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            padding: '8px',
+            borderRadius: '4px',
+            fontSize: '11px',
           }}
         />
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <input
-            type="text"
-            placeholder="Entity name"
-            value={newEntityName}
-            onChange={(e) => setNewEntityName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateEntity()}
-            style={{
-              flex: 1,
-              padding: '6px 8px',
-              fontSize: '12px',
-            }}
-          />
-          <button
-            onClick={handleCreateEntity}
-            style={{
-              padding: '6px 10px',
-              backgroundColor: 'var(--accent)',
-              border: '1px solid var(--accent)',
-              color: 'white',
-              fontWeight: 600,
-              fontSize: '12px',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + Entity
-          </button>
-        </div>
+        <input
+          type="text"
+          placeholder="Entity name"
+          value={newEntityName}
+          onChange={(e) => setNewEntityName(e.target.value)}
+          style={{ 
+            width: '100%', 
+            marginBottom: '10px', 
+            boxSizing: 'border-box',
+            backgroundColor: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+            padding: '8px',
+            borderRadius: '4px',
+            fontSize: '11px',
+          }}
+        />
+        <button 
+          onClick={handleCreateEntity} 
+          style={{ 
+            width: '100%',
+            backgroundColor: 'var(--accent)',
+            border: '1px solid var(--accent)',
+            color: 'white',
+            fontWeight: 600,
+            padding: '8px',
+          }}
+        >Add Entity</button>
       </div>
 
       {/* Filter & Search */}

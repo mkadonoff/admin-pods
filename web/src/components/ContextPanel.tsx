@@ -49,25 +49,16 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
     return assemblies.find((assembly) => assembly.assemblyId === selectedFloor.assemblyId)?.name;
   }, [assemblies, selectedFloor]);
 
-  const headerAssemblyName = selectedPodId
-    ? selectedPodInfo.assemblyName || '—'
+  const headerLine = selectedPodId
+    ? `Assembly: ${selectedPodInfo.assemblyName || '—'} — Floor: ${selectedPodInfo.floorName || '—'} — Pod: ${selectedPodInfo.podName || 'Untitled Pod'}`
     : selectedFloor
-      ? activeAssemblyName || '—'
-      : undefined;
-
-  const headerFloorName = selectedPodId
-    ? selectedPodInfo.floorName || '—'
-    : selectedFloor
-      ? selectedFloor.name
-      : undefined;
-
-  const headerPodName = selectedPodId ? selectedPodInfo.podName || 'Untitled Pod' : undefined;
+      ? `Assembly: ${activeAssemblyName || '—'} — Floor: ${selectedFloor.name}`
+      : 'Assemblies & Floors';
 
   return (
     <section
       style={{
-        flex: 1,
-        minHeight: 0,
+        flex: '0 0 auto',
         display: 'flex',
         flexDirection: 'column',
         borderTop: '1px solid var(--border)',
@@ -85,43 +76,27 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
           backgroundColor: 'var(--bg-surface)',
         }}
       >
-        <div
-          style={{
-            color: 'var(--text)',
-            fontSize: '12px',
-            fontWeight: 600,
-            letterSpacing: '0.2px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '18px',
-          }}
-        >
-          {headerAssemblyName && (
-            <span>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Assembly:</span> {headerAssemblyName}
-            </span>
-          )}
-          {headerFloorName && (
-            <span>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Floor:</span> {headerFloorName}
-            </span>
-          )}
-          {headerPodName && (
-            <span>
-              <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Pod:</span> {headerPodName}
-            </span>
-          )}
-          {!headerAssemblyName && !headerFloorName && !headerPodName && <span>Assemblies & Floors</span>}
+        <div>
+          <div
+            style={{
+              color: 'var(--text)',
+              fontSize: '13px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              paddingBottom: '6px',
+              borderBottom: '1px solid var(--border)',
+              marginBottom: 0,
+            }}
+          >
+            {headerLine}
+          </div>
         </div>
         {selectedPodId && (
           <button
             onClick={onClearPodSelection}
-            title="Back to floor panel"
             style={{
-              padding: '4px 8px',
+              padding: '4px 10px',
               borderRadius: '6px',
               border: '1px solid var(--border)',
               backgroundColor: 'var(--bg-primary)',
@@ -131,22 +106,12 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
               cursor: 'pointer',
             }}
           >
-            ↩
+            Back to floor panel
           </button>
         )}
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          padding: '16px',
-          backgroundColor: 'var(--bg-surface)',
-          overflowY: 'auto',
-          scrollSnapType: 'y mandatory',
-          scrollPaddingTop: '16px',
-        }}
-      >
+      <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface)' }}>
         {selectedPodId ? (
           <PodDetailsPanel
             podId={selectedPodId}
@@ -268,8 +233,6 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                   <div
                     key={ring.ringId}
                     style={{
-                      scrollSnapAlign: 'start',
-                      scrollSnapStop: 'always',
                       padding: '10px',
                       border: '1px solid var(--border)',
                       borderRadius: '8px',
@@ -284,11 +247,11 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                           value={editRingName}
                           onChange={(event) => setEditRingName(event.target.value)}
                           onKeyDown={(event) => event.key === 'Enter' && handleSaveRingEdit()}
-                          style={{ flex: '0 0 200px', width: '200px', padding: '6px 8px' }}
+                          style={{ flex: '1 1 120px', padding: '6px 8px' }}
                           placeholder="Name"
                           autoFocus
                         />
-                        <label style={{ display: 'flex', flex: '0 0 auto', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
                           Radius:
                           <input
                             type="number"
@@ -312,7 +275,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <div style={{ flex: 1 }}>
-                            <strong style={{ color: 'var(--text)', fontSize: '12px' }}>{ring.name}</strong>
+                            <strong style={{ color: 'var(--text)' }}>{ring.name}</strong>
                             <span
                               style={{
                                 marginLeft: '8px',
@@ -383,10 +346,8 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
 
           <div
             style={{
-              scrollSnapAlign: 'start',
-              scrollSnapStop: 'always',
-              display: 'flex',
-              flexWrap: 'wrap',
+              display: 'grid',
+              gridTemplateColumns: 'minmax(160px, 1fr) repeat(3, auto)',
               gap: '10px',
               alignItems: 'center',
               padding: '12px',
@@ -400,7 +361,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
               placeholder="Ring name"
               value={newRingName}
               onChange={(event) => setNewRingName(event.target.value)}
-              style={{ flex: '1 1 260px', minWidth: '180px', maxWidth: '320px', padding: '8px 10px' }}
+              style={{ width: '100%', padding: '8px 10px' }}
             />
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
               Radius:
@@ -431,6 +392,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                 color: 'white',
                 borderRadius: '6px',
                 fontWeight: 600,
+                justifySelf: 'end',
               }}
             >
               + Ring
@@ -438,7 +400,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
           </div>
         </div>
       ) : (
-        <div style={{ color: 'var(--text-muted)', fontSize: '13px', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
           Select a floor from the left sidebar to manage its rings.
         </div>
       )}

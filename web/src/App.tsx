@@ -183,17 +183,6 @@ function App() {
     refreshAssemblies(); // Update floor counts
   };
 
-  const handleSelectFloor = (floorId: number) => {
-    setSelectedFloorId(floorId);
-    setSelectedPodId(null);
-  };
-
-  const handleSelectAssembly = (assemblyId: number) => {
-    setActiveAssemblyId(assemblyId);
-    setSelectedFloorId(null);
-    setSelectedPodId(null);
-  };
-
   // Find assembly and floor for selected pod
   const selectedPodInfo = useMemo(() => {
     if (!selectedPodId) {
@@ -349,8 +338,8 @@ function App() {
             floors={floors}
             activeAssemblyId={activeAssemblyId}
             selectedFloorId={selectedFloorId}
-            onSelectAssembly={handleSelectAssembly}
-            onSelectFloor={handleSelectFloor}
+            onSelectAssembly={setActiveAssemblyId}
+            onSelectFloor={setSelectedFloorId}
             onDeleteAssembly={handleDeleteAssembly}
             onRenameAssembly={handleRenameAssembly}
             onFloorsChanged={handleFloorsChanged}
@@ -360,8 +349,8 @@ function App() {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div
             style={{
-              flex: '0 0 58%',
-              minHeight: 320,
+              flex: 1,
+              minHeight: 0,
               borderBottom: '1px solid var(--border)',
               backgroundColor: 'var(--bg-surface)',
             }}

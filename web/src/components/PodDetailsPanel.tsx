@@ -148,15 +148,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         boxSizing: 'border-box',
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          gap: '8px',
-          marginBottom: '12px',
-          scrollSnapAlign: 'start',
-          scrollSnapStop: 'always',
-        }}
-      >
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
         <input
           type="text"
           placeholder="Pod name"
@@ -170,41 +162,37 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
           }}
           style={{
             flex: 1,
-            padding: '8px 10px',
+            padding: '10px',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border)',
             color: 'var(--text)',
             borderRadius: '6px',
-            fontFamily: "'Consolas', monospace",
-            fontSize: '12px',
           }}
         />
         <button
           onClick={handleSavePodName}
           disabled={savingPodName}
-          title="Save pod name"
           style={{
-            padding: '4px 10px',
-            backgroundColor: 'var(--bg-primary)',
-            color: 'var(--text)',
-            border: '1px solid var(--border)',
+            padding: '10px 14px',
+            backgroundColor: 'var(--accent)',
+            color: 'white',
+            border: 'none',
             borderRadius: '6px',
             fontWeight: 600,
             cursor: 'pointer',
             opacity: savingPodName ? 0.7 : 1,
-            fontSize: '12px',
-            minWidth: '44px',
+            minWidth: '90px',
           }}
         >
-          {savingPodName ? '…' : '✓'}
+          {savingPodName ? 'Saving…' : 'Save'}
         </button>
       </div>
 
-      <section style={{ marginBottom: '16px', scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+      <section style={{ marginBottom: '16px' }}>
         <h4
           style={{
-            color: 'var(--text-muted)',
-            fontSize: '11px',
+            color: 'var(--accent)',
+            fontSize: '12px',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
@@ -216,9 +204,9 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(200px, 1fr) minmax(140px, 0.7fr) auto',
+            gridTemplateColumns: 'minmax(180px, 1fr) minmax(140px, 0.7fr)',
             gap: '10px',
-            alignItems: 'center',
+            marginBottom: '10px',
           }}
         >
           <select
@@ -226,13 +214,11 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
             onChange={(event) => setSelectedEntityId(event.target.value ? parseInt(event.target.value, 10) : '')}
             style={{
               width: '100%',
-              padding: '8px 10px',
+              padding: '10px',
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border)',
               color: 'var(--text)',
               borderRadius: '6px',
-              fontFamily: "'Consolas', monospace",
-              fontSize: '12px',
             }}
           >
             <option value="">-- Select Entity --</option>
@@ -249,36 +235,32 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
             onChange={(event) => setRoleTag(event.target.value)}
             style={{
               width: '100%',
-              padding: '8px 10px',
+              padding: '10px',
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border)',
               color: 'var(--text)',
               borderRadius: '6px',
-              fontFamily: "'Consolas', monospace",
-              fontSize: '12px',
             }}
           />
-          <button
-            onClick={handleAssignEntity}
-            title="Assign"
-            style={{
-              padding: '4px 10px',
-              backgroundColor: 'var(--bg-primary)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              fontSize: '12px',
-              minWidth: '44px',
-            }}
-          >
-            ✓
-          </button>
         </div>
+        <button
+          onClick={handleAssignEntity}
+          style={{
+            width: '100%',
+            padding: '10px',
+            backgroundColor: 'var(--accent)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Assign
+        </button>
       </section>
 
-      <section style={{ scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
+      <section>
         <h4
           style={{
             color: 'var(--text-muted)',
