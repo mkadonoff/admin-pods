@@ -30,8 +30,28 @@ app.use('/', createAssignmentRoutes(prisma));
 app.use('/assemblies', createAssemblyRoutes(prisma));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+app.get('/health', async (req, res) => {
+  const environment = process.env.APP_ENV_NAME || process.env.NODE_ENV || 'development';
+  const gitCommit = process.env.GIT_COMMIT || process.env.VITE_GIT_COMMIT || null;
+  const payload = {
+    status: 'ok',
+    database: 'ok',
+    gitCommit,
+    serverTime: new Date().toISOString(),
+    environment,
+  };
+
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json(payload);
+  } catch (error) {
+    res.status(503).json({
+      ...payload,
+      status: 'error',
+      database: 'unreachable',
+      error: 'Database connectivity failed',
+    });
+  }
 });
 
 app.listen(PORT, () => {

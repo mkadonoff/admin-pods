@@ -5,7 +5,7 @@ import { FloorManager } from './components/FloorManager';
 import { LayoutView } from './components/LayoutView';
 import { PodDetailDrawer } from './components/PodDetailDrawer';
 import { EntityLibrary } from './components/EntityLibrary';
-import { floorAPI, assemblyAPI, Assembly, Floor } from './api';
+import { floorAPI, assemblyAPI, healthAPI, Assembly, Floor, ApiHealth } from './api';
 
 function App() {
   const gitCommit = import.meta.env.VITE_GIT_COMMIT;
@@ -20,6 +20,8 @@ function App() {
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
   const [assignmentsVersion, setAssignmentsVersion] = useState(0);
+  const [healthStatus, setHealthStatus] = useState<ApiHealth | null>(null);
+  const [healthFailed, setHealthFailed] = useState(false);
 
   // Load assemblies
   const refreshAssemblies = useCallback(async () => {
@@ -57,6 +59,32 @@ function App() {
         await refreshFloors(ids);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchHealth = async () => {
+      try {
+        const response = await healthAPI.status();
+        if (!cancelled) {
+          setHealthStatus(response.data);
+          setHealthFailed(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setHealthFailed(true);
+          setHealthStatus(null);
+        }
+      }
+    };
+
+    fetchHealth();
+    const interval = setInterval(fetchHealth, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   // Reload floors when assemblies change
@@ -151,6 +179,19 @@ function App() {
     return { assemblyName: undefined, floorName: undefined, podName: undefined };
   }, [selectedPodId, floors, assemblies]);
 
+  const apiHealthy = healthStatus?.status === 'ok' && !healthFailed;
+  const healthBadgeText = healthFailed
+    ? 'API Unreachable'
+    : healthStatus
+      ? `${healthStatus.environment} · ${healthStatus.status === 'ok' ? 'API OK' : 'API Issue'}`
+      : 'Checking API...';
+  const healthBadgeColor = apiHealthy ? '#107c10' : healthFailed ? '#a4262c' : '#605e5c';
+  const healthBadgeBackground = apiHealthy
+    ? 'rgba(16,124,16,0.15)'
+    : healthFailed
+      ? 'rgba(164,38,44,0.15)'
+      : 'rgba(96,94,92,0.15)';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--bg-primary)' }}>
       <header
@@ -179,6 +220,19 @@ function App() {
               borderRadius: '4px',
             }}>
               {versionLabel}
+            </div>
+            <div
+              style={{
+                fontSize: '11px',
+                color: healthBadgeColor,
+                fontFamily: "'Consolas', 'SF Mono', monospace",
+                padding: '2px 8px',
+                backgroundColor: healthBadgeBackground,
+                borderRadius: '4px',
+                border: `1px solid ${healthBadgeColor}`,
+              }}
+            >
+              {healthBadgeText}
             </div>
           </div>
         </div>

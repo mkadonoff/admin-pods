@@ -6,6 +6,15 @@ const API = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export interface ApiHealth {
+  status: 'ok' | 'error';
+  database: string;
+  gitCommit: string | null;
+  serverTime: string;
+  environment: string;
+  error?: string;
+}
+
 // Types
 export interface Assembly {
   assemblyId: number;
@@ -114,4 +123,8 @@ export const assignmentAPI = {
   create: (podId: number, data: { entityId: number; roleTag?: string }) =>
     API.post<PodAssignment>(`/pods/${podId}/assignments`, data),
   delete: (id: number) => API.delete(`/assignments/${id}`),
+};
+
+export const healthAPI = {
+  status: () => API.get<ApiHealth>('/health'),
 };
