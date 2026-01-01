@@ -8,6 +8,8 @@ import { EntityLibrary } from './components/EntityLibrary';
 import { floorAPI, assemblyAPI, Assembly, Floor } from './api';
 
 function App() {
+  const gitCommit = import.meta.env.VITE_GIT_COMMIT;
+  const versionLabel = gitCommit ? gitCommit.slice(0, 7) : 'dev';
   // Assembly state
   const [assemblies, setAssemblies] = useState<Assembly[]>([]);
   const [activeAssemblyId, setActiveAssemblyId] = useState<number | null>(null);
@@ -168,7 +170,7 @@ function App() {
               backgroundColor: 'var(--accent-light)',
               borderRadius: '4px',
             }}>
-              v0.2
+              {versionLabel}
             </div>
           </div>
         </div>
