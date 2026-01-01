@@ -355,7 +355,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           <directionalLight position={[10, 20, 10]} intensity={0.8} />
           <gridHelper args={[100, 50, '#c0c8d0', '#d8e0e8']} />
 
-          <Bounds fit clip margin={1.5}>
+          <Bounds clip margin={1.5}>
             <group>
               {assemblies.map((assembly) => {
                 const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
