@@ -5,6 +5,7 @@ interface Entity {
   entityId: number;
   displayName: string;
   entityType: string;
+  content?: string | null;
 }
 
 interface EntityLibraryProps {
@@ -19,6 +20,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
   const [newEntityName, setNewEntityName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
+  const [documentDrafts, setDocumentDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
     loadEntities();
@@ -28,8 +30,17 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
     try {
       const response = await entityAPI.list(filter || undefined, search || undefined);
       setEntities(response.data);
+      const nextDrafts: Record<number, string> = {};
+      response.data
+        .filter((entity) => entity.entityType === 'Document')
+        .forEach((entity) => {
+          nextDrafts[entity.entityId] = entity.content ?? '';
+        });
+      setDocumentDrafts(nextDrafts);
+      return response.data;
     } catch (error) {
       console.error('Failed to load entities', error);
+      return [];
     }
   };
 
@@ -45,7 +56,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
       });
       setNewEntityType('');
       setNewEntityName('');
-      loadEntities();
+      await loadEntities();
       onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to create entity:', error);
@@ -66,7 +77,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
     try {
       await entityAPI.update(entityId, { displayName: editName });
       setEditingId(null);
-      loadEntities();
+      await loadEntities();
       onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to update entity:', error);
@@ -80,11 +91,39 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
     }
     try {
       await entityAPI.delete(entityId);
-      loadEntities();
+      await loadEntities();
       onEntitiesChanged?.();
     } catch (error: any) {
       console.error('Failed to delete entity:', error);
       alert(`Error deleting entity: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const getDocumentDraftValue = (entity: Entity) => documentDrafts[entity.entityId] ?? entity.content ?? '';
+
+  const handleDocumentDraftChange = (entityId: number, value: string) => {
+    setDocumentDrafts((prev) => ({ ...prev, [entityId]: value }));
+  };
+
+  const handleDocumentContentSave = async (entity: Entity) => {
+    const draftValue = getDocumentDraftValue(entity);
+    if ((entity.content ?? '') === draftValue) {
+      return;
+    }
+    try {
+      await entityAPI.update(entity.entityId, { content: draftValue });
+      onEntitiesChanged?.();
+      await loadEntities();
+    } catch (error: any) {
+      console.error('Failed to update document content:', error);
+      alert(`Error updating document: ${error.response?.data?.error || error.message}`);
+    }
+  };
+
+  const handleDocumentKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>, entity: Entity) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      handleDocumentContentSave(entity);
     }
   };
 
@@ -304,6 +343,33 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged 
                     🗑️ Delete
                   </button>
                 </div>
+                {e.entityType === 'Document' && (
+                  <div style={{ marginTop: '10px' }}>
+                    <textarea
+                      value={getDocumentDraftValue(e)}
+                      onChange={(event) => handleDocumentDraftChange(e.entityId, event.target.value)}
+                      onBlur={() => handleDocumentContentSave(e)}
+                      onKeyDown={(event) => handleDocumentKeyDown(event, e)}
+                      placeholder="Document content"
+                      style={{
+                        width: '100%',
+                        minHeight: '120px',
+                        marginTop: '8px',
+                        boxSizing: 'border-box',
+                        backgroundColor: 'var(--bg-primary)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        padding: '8px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        resize: 'vertical',
+                      }}
+                    />
+                    <small style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                      Saves on blur or Ctrl+S.
+                    </small>
+                  </div>
+                )}
               </div>
             )}
           </li>

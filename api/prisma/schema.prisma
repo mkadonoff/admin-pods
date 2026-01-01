@@ -62,6 +62,7 @@ model Entity {
   entityType         String
   displayName        String
   externalSystemId   String?
+  content            String?  @db.NText
   assignments        PodAssignment[]
 
   @@map("Entity")

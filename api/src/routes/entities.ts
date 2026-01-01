@@ -27,9 +27,9 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   // POST /entities
   router.post('/entities', async (req: Request, res: Response) => {
     try {
-      const { entityType, displayName, externalSystemId } = req.body;
+      const { entityType, displayName, externalSystemId, content } = req.body;
       const entity = await prisma.entity.create({
-        data: { entityType, displayName, externalSystemId },
+        data: { entityType, displayName, externalSystemId, content },
       });
       res.status(201).json(entity);
     } catch (error) {
@@ -41,10 +41,14 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   router.patch('/entities/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { displayName, externalSystemId } = req.body;
+      const { displayName, externalSystemId, content } = req.body;
+      const data: any = {};
+      if (displayName !== undefined) data.displayName = displayName;
+      if (externalSystemId !== undefined) data.externalSystemId = externalSystemId;
+      if (content !== undefined) data.content = content;
       const entity = await prisma.entity.update({
         where: { entityId: parseInt(id) },
-        data: { ...(displayName && { displayName }), ...(externalSystemId && { externalSystemId }) },
+        data,
       });
       res.json(entity);
     } catch (error) {

@@ -57,6 +57,7 @@ export interface Entity {
   entityType: string;
   displayName: string;
   externalSystemId: string | null;
+  content?: string | null;
 }
 
 export interface PodAssignment {
@@ -109,9 +110,9 @@ export const podAPI = {
 // Entities
 export const entityAPI = {
   list: (type?: string, q?: string) => API.get<Entity[]>('/entities', { params: { type, q } }),
-  create: (data: { entityType: string; displayName: string; externalSystemId?: string }) =>
+  create: (data: { entityType: string; displayName: string; externalSystemId?: string; content?: string }) =>
     API.post<Entity>('/entities', data),
-  update: (id: number, data: Partial<{ displayName: string; externalSystemId: string }>) =>
+  update: (id: number, data: Partial<{ displayName: string; externalSystemId: string; content: string }>) =>
     API.patch<Entity>(`/entities/${id}`, data),
   delete: (id: number) => API.delete(`/entities/${id}`),
 };
