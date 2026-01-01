@@ -221,6 +221,7 @@ function App() {
           selectedPodId={selectedPodId}
           onPodSelect={setSelectedPodId}
           assignmentsVersion={assignmentsVersion}
+          onLayoutChanged={handleFloorsChanged}
         />
         <EntityLibrary />
         <PodDetailDrawer

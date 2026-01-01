@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ringAPI, Assembly, Floor, Ring } from '../api';
 import { Canvas } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
@@ -8,6 +8,7 @@ const POD_HEIGHT = POD_RADIUS * 0.8 * 2;  // 1.2 - matches diameter for 1:1 rati
 const FLOOR_SPACING = POD_HEIGHT * 1.35;  // brings next floor closer to pod roof
 const FLOOR_RADIUS_SCALE = 2.0; // reduced platform diameter
 const ASSEMBLY_GAP = 3;
+const INITIAL_CAMERA_POSITION: [number, number, number] = [0, 5, 15];
 
 // Calculate max ring radius for an assembly
 function getAssemblyMaxRadius(floors: Floor[]): number {
@@ -217,6 +218,7 @@ interface LayoutViewProps {
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
   assignmentsVersion?: number;
+  onLayoutChanged?: () => void;
 }
 
 export const LayoutView: React.FC<LayoutViewProps> = ({
@@ -227,6 +229,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   selectedPodId,
   onPodSelect,
   assignmentsVersion: _assignmentsVersion,
+  onLayoutChanged,
 }) => {
   // Ring creation state (for selected floor)
   const [newRingName, setNewRingName] = useState('');
@@ -237,6 +240,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   const [editingRingId, setEditingRingId] = useState<number | null>(null);
   const [editRingName, setEditRingName] = useState('');
   const [editRingRadius, setEditRingRadius] = useState(0);
+  const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
+  const [cameraInitialized, setCameraInitialized] = useState(false);
 
   const selectedFloor = floors.find((f) => f.floorId === selectedFloorId);
 
@@ -258,13 +263,28 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   }, [assemblies, floors]);
 
   // Camera position based on assemblies
-  const cameraPosition = useMemo<[number, number, number]>(() => {
-    if (assemblies.length === 0) return [0, 5, 15];
+  const idealCameraPosition = useMemo<[number, number, number]>(() => {
+    if (assemblies.length === 0) return INITIAL_CAMERA_POSITION;
     const totalWidth = Object.values(assemblyOffsets).reduce((max, x) => Math.max(max, x), 0);
     const centerX = totalWidth / 2;
-    const maxFloors = Math.max(...assemblies.map((a) => floors.filter((f) => f.assemblyId === a.assemblyId).length), 1);
+    const maxFloors = Math.max(
+      ...assemblies.map((a) => floors.filter((f) => f.assemblyId === a.assemblyId).length),
+      1,
+    );
     return [centerX, maxFloors * FLOOR_SPACING, totalWidth + 10];
   }, [assemblies, floors, assemblyOffsets]);
+
+  useEffect(() => {
+    if (assemblies.length === 0) {
+      setCameraPosition(INITIAL_CAMERA_POSITION);
+      setCameraInitialized(false);
+      return;
+    }
+    if (!cameraInitialized) {
+      setCameraPosition(idealCameraPosition);
+      setCameraInitialized(true);
+    }
+  }, [assemblies.length, idealCameraPosition, cameraInitialized]);
 
   const handleCreateRing = async () => {
     if (!selectedFloorId || !newRingName) {
@@ -281,7 +301,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       setNewRingRadius(0);
       setNewRingSlots(1);
       // Trigger refresh via parent
-      window.location.reload(); // Simple refresh for now
+      onLayoutChanged?.();
     } catch (error: any) {
       console.error('Failed to create ring:', error);
       alert(`Error creating ring: ${error.response?.data?.error || error.message}`);
@@ -304,7 +324,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       setEditingRingId(null);
       setEditRingName('');
       setEditRingRadius(0);
-      window.location.reload();
+      onLayoutChanged?.();
     } catch (error: any) {
       console.error('Failed to update ring:', error);
       alert(`Error updating ring: ${error.response?.data?.error || error.message}`);
@@ -317,7 +337,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }
     try {
       await ringAPI.delete(ringId);
-      window.location.reload();
+      onLayoutChanged?.();
     } catch (error: any) {
       console.error('Failed to delete ring:', error);
       alert(`Error deleting ring: ${error.response?.data?.error || error.message}`);
@@ -335,7 +355,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           <directionalLight position={[10, 20, 10]} intensity={0.8} />
           <gridHelper args={[100, 50, '#c0c8d0', '#d8e0e8']} />
 
-          <Bounds fit clip observe margin={1.5}>
+          <Bounds fit clip margin={1.5}>
             <group>
               {assemblies.map((assembly) => {
                 const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
