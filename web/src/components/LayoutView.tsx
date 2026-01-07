@@ -549,6 +549,12 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      // Ignore keyboard shortcuts when typing in input fields
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
       if (event.key === 'n' || event.key === 'N') {
         event.preventDefault();
         setNavigationMode((v) => !v);
@@ -574,6 +580,12 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       if (!navigationMode) return;
 
       const onKeyDown = (event: KeyboardEvent) => {
+        // Ignore keyboard shortcuts when typing in input fields
+        const target = event.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+          return;
+        }
+
         const state = navStateRef.current;
         const stepDist = 1.25;
         const stepAngle = Math.PI / 3;
