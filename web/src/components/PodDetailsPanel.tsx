@@ -5,7 +5,7 @@ interface Assignment {
   assignmentId: number;
   entityId: number;
   roleTag?: string | null;
-  entity?: { displayName: string };
+  entity?: { displayName: string; entityType?: string };
 }
 
 interface Entity {
@@ -19,6 +19,7 @@ interface PodDetailsPanelProps {
   onAssignmentsChanged?: () => void;
   podName?: string;
   onPodUpdated?: () => void;
+  onProcessPod?: (podId: number) => void;
 }
 
 export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
@@ -26,6 +27,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
   onAssignmentsChanged,
   podName,
   onPodUpdated,
+  onProcessPod,
 }) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
@@ -136,6 +138,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
 
   const globalAssignedEntityIds = new Set(allAssignments.map((assignment) => assignment.entityId));
   const availableEntities = entities.filter((entity) => !globalAssignedEntityIds.has(entity.entityId));
+  const isCompanyPod = assignments.some((assignment) => (assignment.entity?.entityType || '').toLowerCase() === 'company');
 
   return (
     <div
@@ -185,6 +188,31 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
           }}
         >
           {savingPodName ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <button
+          onClick={() => {
+            if (!podId) return;
+            if (!isCompanyPod) {
+              alert('This workflow can only be run for a pod assigned to a Company entity.');
+              return;
+            }
+            onProcessPod?.(podId);
+          }}
+          style={{
+            width: '100%',
+            padding: '10px',
+            backgroundColor: 'var(--accent)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          Process
         </button>
       </div>
 

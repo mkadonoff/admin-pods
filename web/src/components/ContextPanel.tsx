@@ -17,6 +17,7 @@ interface ContextPanelProps {
   onAssignmentsChanged: () => void;
   onPodUpdated: () => void;
   onClearPodSelection: () => void;
+  onProcessPod: (podId: number) => void;
 }
 
 interface FloorContextContentProps {
@@ -38,6 +39,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   onAssignmentsChanged,
   onPodUpdated,
   onClearPodSelection,
+  onProcessPod,
 }) => {
   const selectedFloor = useMemo(
     () => floors.find((floor) => floor.floorId === selectedFloorId) || null,
@@ -118,6 +120,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
             podName={selectedPodInfo.podName}
             onAssignmentsChanged={onAssignmentsChanged}
             onPodUpdated={onPodUpdated}
+            onProcessPod={onProcessPod}
           />
         ) : (
           <FloorContextContent

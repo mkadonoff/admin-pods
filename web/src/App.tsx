@@ -22,6 +22,8 @@ function App() {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
+  const [processRequestNonce, setProcessRequestNonce] = useState(0);
+  const [processRequestPodId, setProcessRequestPodId] = useState<number | null>(null);
   const [assignmentsVersion, setAssignmentsVersion] = useState(0);
   const [myPersonEntityId, setMyPersonEntityId] = useState<number | null>(null);
   const [entityVersion, setEntityVersion] = useState(0);
@@ -182,6 +184,11 @@ function App() {
     }
     refreshAssemblies(); // Update floor counts
   };
+
+  const handleProcessPod = useCallback((podId: number) => {
+    setProcessRequestPodId(podId);
+    setProcessRequestNonce((n) => n + 1);
+  }, []);
 
   // Find assembly and floor for selected pod
   const selectedPodInfo = useMemo(() => {
@@ -365,6 +372,19 @@ function App() {
               assignmentsVersion={assignmentsVersion}
               onLayoutChanged={handleFloorsChanged}
               presencePodId={myPresenceInfo.podId}
+              processRequest={
+                processRequestPodId
+                  ? {
+                      podId: processRequestPodId,
+                      nonce: processRequestNonce,
+                    }
+                  : null
+              }
+              onRequestProcessSelected={() => {
+                if (selectedPodId) {
+                  handleProcessPod(selectedPodId);
+                }
+              }}
             />
           </div>
           <ContextPanel
@@ -378,6 +398,7 @@ function App() {
             onAssignmentsChanged={notifyAssignmentsChanged}
             onPodUpdated={handleFloorsChanged}
             onClearPodSelection={() => setSelectedPodId(null)}
+            onProcessPod={handleProcessPod}
           />
         </div>
 
