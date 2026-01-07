@@ -775,38 +775,37 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         <div
           style={{
             position: 'absolute',
-            bottom: 10,
-            left: 10,
+            bottom: 0,
+            left: 0,
+            right: 0,
             background: 'rgba(255,255,255,0.95)',
-            padding: '10px 14px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            border: '1px solid var(--border)',
+            padding: '6px 12px',
+            fontSize: '10px',
+            borderTop: '1px solid var(--border)',
             color: 'var(--text)',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '20px',
+            flexWrap: 'wrap',
           }}
         >
-          <div style={{ display: 'flex', gap: '14px' }}>
-            <span>
-              <span style={{ display: 'inline-block', width: 10, height: 10, background: '#0078d4', marginRight: 5, borderRadius: '2px' }} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#0078d4', borderRadius: '2px' }} />
               Empty
             </span>
-            <span>
-              <span style={{ display: 'inline-block', width: 10, height: 10, background: '#107c10', marginRight: 5, borderRadius: '2px' }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#107c10', borderRadius: '2px' }} />
               Assigned
             </span>
-            <span>
-              <span style={{ display: 'inline-block', width: 10, height: 10, background: '#ffb900', marginRight: 5, borderRadius: '2px' }} />
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ffb900', borderRadius: '2px' }} />
               Selected
             </span>
-          </div>
-          <div style={{ marginTop: 8, color: 'var(--text-muted)', lineHeight: 1.4 }}>
-            <div><strong>Nav</strong>: N toggle, Esc exit</div>
-            <div>Move: W/S, A/D, R/F</div>
-            <div>Look/Turn (60°): Q/E, arrows</div>
-            <div>Reset camera: 0</div>
-            <div><strong>Process</strong>: P</div>
-          </div>
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            <strong>Nav:</strong> N toggle, Esc exit · Move: W/S A/D R/F · Look: Q/E arrows · Reset: 0 · <strong>Process:</strong> P
+          </span>
         </div>
       </div>
 

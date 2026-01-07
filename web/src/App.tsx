@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import './App.css';
 import arpogeLogo from './assets/arpoge-logo.png';
 import { LayoutView } from './components/LayoutView';
@@ -29,6 +29,9 @@ function App() {
   const [entityVersion, setEntityVersion] = useState(0);
   const [healthStatus, setHealthStatus] = useState<ApiHealth | null>(null);
   const [healthFailed, setHealthFailed] = useState(false);
+  const [centerSplitPercent, setCenterSplitPercent] = useState(50);
+  const isDraggingRef = useRef(false);
+  const centerContainerRef = useRef<HTMLDivElement>(null);
 
   // Load assemblies
   const refreshAssemblies = useCallback(async () => {
@@ -246,6 +249,34 @@ function App() {
       ? 'rgba(164,38,44,0.15)'
       : 'rgba(96,94,92,0.15)';
 
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !centerContainerRef.current) return;
+      
+      const rect = centerContainerRef.current.getBoundingClientRect();
+      const newPercent = ((e.clientY - rect.top) / rect.height) * 100;
+      const clampedPercent = Math.max(20, Math.min(80, newPercent));
+      setCenterSplitPercent(clampedPercent);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--bg-primary)' }}>
       <header
@@ -353,13 +384,15 @@ function App() {
           />
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} ref={centerContainerRef}>
           <div
             style={{
-              flex: 1,
+              height: `${centerSplitPercent}%`,
               minHeight: 0,
               borderBottom: '1px solid var(--border)',
               backgroundColor: 'var(--bg-surface)',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             <LayoutView
@@ -387,19 +420,51 @@ function App() {
               }}
             />
           </div>
-          <ContextPanel
-            assemblies={assemblies}
-            floors={floors}
-            selectedFloorId={selectedFloorId}
-            selectedPodId={selectedPodId}
-            selectedPodInfo={selectedPodInfo}
-            onLayoutChanged={handleFloorsChanged}
-            onPodSelect={setSelectedPodId}
-            onAssignmentsChanged={notifyAssignmentsChanged}
-            onPodUpdated={handleFloorsChanged}
-            onClearPodSelection={() => setSelectedPodId(null)}
-            onProcessPod={handleProcessPod}
-          />
+          <div
+            style={{
+              height: '4px',
+              backgroundColor: 'var(--border)',
+              cursor: 'ns-resize',
+              position: 'relative',
+              zIndex: 10,
+            }}
+            onMouseDown={handleSplitterMouseDown}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                width: '40px',
+                height: '3px',
+                backgroundColor: 'var(--text-muted)',
+                borderRadius: '2px',
+              }}
+            />
+          </div>
+          <div
+            style={{
+              height: `${100 - centerSplitPercent}%`,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <ContextPanel
+              assemblies={assemblies}
+              floors={floors}
+              selectedFloorId={selectedFloorId}
+              selectedPodId={selectedPodId}
+              selectedPodInfo={selectedPodInfo}
+              onLayoutChanged={handleFloorsChanged}
+              onPodSelect={setSelectedPodId}
+              onAssignmentsChanged={notifyAssignmentsChanged}
+              onPodUpdated={handleFloorsChanged}
+              onClearPodSelection={() => setSelectedPodId(null)}
+              onProcessPod={handleProcessPod}
+            />
+          </div>
         </div>
 
         <div

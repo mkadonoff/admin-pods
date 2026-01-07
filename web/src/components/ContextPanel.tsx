@@ -60,12 +60,13 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   return (
     <section
       style={{
-        flex: '0 0 auto',
+        flex: 1,
         display: 'flex',
         flexDirection: 'column',
         borderTop: '1px solid var(--border)',
         backgroundColor: 'var(--bg-surface)',
         fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+        minHeight: 0,
       }}
     >
       <div
@@ -73,20 +74,21 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '12px 16px',
+          padding: '8px 12px',
           borderBottom: '1px solid var(--border)',
           backgroundColor: 'var(--bg-surface)',
+          flexShrink: 0,
         }}
       >
         <div>
           <div
             style={{
               color: 'var(--text)',
-              fontSize: '13px',
+              fontSize: '11px',
               fontWeight: 600,
               textTransform: 'uppercase',
               letterSpacing: '0.5px',
-              paddingBottom: '6px',
+              paddingBottom: '4px',
               borderBottom: '1px solid var(--border)',
               marginBottom: 0,
             }}
@@ -98,12 +100,12 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
           <button
             onClick={onClearPodSelection}
             style={{
-              padding: '4px 10px',
-              borderRadius: '6px',
+              padding: '3px 8px',
+              borderRadius: '4px',
               border: '1px solid var(--border)',
               backgroundColor: 'var(--bg-primary)',
               color: 'var(--text)',
-              fontSize: '11px',
+              fontSize: '10px',
               fontWeight: 600,
               cursor: 'pointer',
             }}
@@ -113,7 +115,13 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
         )}
       </div>
 
-      <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface)' }}>
+      <div style={{ 
+        padding: '10px', 
+        backgroundColor: 'var(--bg-surface)',
+        flex: 1,
+        overflowY: 'auto',
+        minHeight: 0,
+      }}>
         {selectedPodId ? (
           <PodDetailsPanel
             podId={selectedPodId}
@@ -222,86 +230,86 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
       }}
     >
       {selectedFloor ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {selectedFloor.rings && selectedFloor.rings.length > 0 ? (
             <div>
               <div
                 style={{
                   display: 'grid',
-                  gap: '10px',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '6px',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                 }}
               >
                 {selectedFloor.rings.map((ring) => (
                   <div
                     key={ring.ringId}
                     style={{
-                      padding: '10px',
+                      padding: '6px 8px',
                       border: '1px solid var(--border)',
-                      borderRadius: '8px',
+                      borderRadius: '4px',
                       backgroundColor: 'var(--bg-elevated)',
                       boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                     }}
                   >
                     {editingRingId === ring.ringId ? (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
                         <input
                           type="text"
                           value={editRingName}
                           onChange={(event) => setEditRingName(event.target.value)}
                           onKeyDown={(event) => event.key === 'Enter' && handleSaveRingEdit()}
-                          style={{ flex: '1 1 120px', padding: '6px 8px' }}
+                          style={{ flex: '1 1 120px', padding: '4px 6px', fontSize: '11px' }}
                           placeholder="Name"
                           autoFocus
                         />
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
                           Radius:
                           <input
                             type="number"
                             min="0"
                             value={editRingRadius}
                             onChange={(event) => setEditRingRadius(parseInt(event.target.value, 10) || 0)}
-                            style={{ width: '60px', padding: '6px' }}
+                            style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
                           />
                         </label>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: "'Consolas', monospace" }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: "'Consolas', monospace" }}>
                           {ring.slots} slots
                         </span>
-                        <button onClick={handleSaveRingEdit} style={{ padding: '4px 8px' }}>
+                        <button onClick={handleSaveRingEdit} style={{ padding: '3px 6px', fontSize: '11px' }}>
                           ✓
                         </button>
-                        <button onClick={() => setEditingRingId(null)} style={{ padding: '4px 8px' }}>
+                        <button onClick={() => setEditingRingId(null)} style={{ padding: '3px 6px', fontSize: '11px' }}>
                           ✕
                         </button>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <div style={{ flex: 1 }}>
-                            <strong style={{ color: 'var(--text)' }}>{ring.name}</strong>
+                            <strong style={{ color: 'var(--text)', fontSize: '11px' }}>{ring.name}</strong>
                             <span
                               style={{
-                                marginLeft: '8px',
+                                marginLeft: '6px',
                                 color: 'var(--text-muted)',
-                                fontSize: '11px',
+                                fontSize: '10px',
                                 fontFamily: "'Consolas', monospace",
                               }}
                             >
                               r{ring.radiusIndex} · {ring.slots} slots · {ring.pods?.length || 0} pods
                             </span>
                           </div>
-                          <button onClick={() => handleEditRing(ring)} style={{ padding: '4px 8px', fontSize: '11px' }}>
+                          <button onClick={() => handleEditRing(ring)} style={{ padding: '2px 5px', fontSize: '10px' }}>
                             ✏️
                           </button>
                           <button
                             onClick={() => handleDeleteRing(ring.ringId, ring.name)}
-                            style={{ padding: '4px 8px', color: 'var(--danger)', fontSize: '11px' }}
+                            style={{ padding: '2px 5px', color: 'var(--danger)', fontSize: '10px' }}
                           >
                             🗑️
                           </button>
                         </div>
                         {ring.pods && ring.pods.length > 0 && (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {ring.pods
                               .slice()
                               .sort((a, b) => a.slotIndex - b.slotIndex)
@@ -314,18 +322,18 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                                     onClick={() => onPodSelect(pod.podId)}
                                     title={`Pod ${pod.slotIndex === -1 ? 'Center' : pod.slotIndex}`}
                                     style={{
-                                      width: '28px',
-                                      height: '28px',
+                                      width: '24px',
+                                      height: '24px',
                                       padding: 0,
                                       border: isSelected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                                      borderRadius: '6px',
+                                      borderRadius: '4px',
                                       backgroundColor: isSelected
                                         ? '#ffb900'
                                         : hasAssignment
                                           ? '#107c10'
                                           : '#0078d4',
                                       color: 'white',
-                                      fontSize: '11px',
+                                      fontSize: '10px',
                                       fontWeight: 600,
                                       cursor: 'pointer',
                                       fontFamily: "'Consolas', monospace",
@@ -350,12 +358,12 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(160px, 1fr) repeat(3, auto)',
-              gap: '10px',
+              gridTemplateColumns: 'minmax(140px, 1fr) repeat(3, auto)',
+              gap: '6px',
               alignItems: 'center',
-              padding: '12px',
+              padding: '8px',
               border: '1px dashed var(--border)',
-              borderRadius: '8px',
+              borderRadius: '4px',
               backgroundColor: 'var(--bg-elevated)',
             }}
           >
@@ -364,37 +372,38 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
               placeholder="Ring name"
               value={newRingName}
               onChange={(event) => setNewRingName(event.target.value)}
-              style={{ width: '100%', padding: '8px 10px' }}
+              style={{ width: '100%', padding: '5px 7px', fontSize: '11px' }}
             />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
               Radius:
               <input
                 type="number"
                 min="0"
                 value={newRingRadius}
                 onChange={(event) => setNewRingRadius(parseInt(event.target.value, 10) || 0)}
-                style={{ width: '60px', padding: '6px' }}
+                style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
               Slots:
               <input
                 type="number"
                 min="1"
                 value={newRingSlots}
                 onChange={(event) => setNewRingSlots(parseInt(event.target.value, 10) || 1)}
-                style={{ width: '60px', padding: '6px' }}
+                style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
               />
             </label>
             <button
               onClick={handleCreateRing}
               style={{
-                padding: '8px 14px',
+                padding: '5px 10px',
                 backgroundColor: 'var(--accent)',
                 border: '1px solid var(--accent)',
                 color: 'white',
-                borderRadius: '6px',
+                borderRadius: '4px',
                 fontWeight: 600,
+                fontSize: '11px',
                 justifySelf: 'end',
               }}
             >

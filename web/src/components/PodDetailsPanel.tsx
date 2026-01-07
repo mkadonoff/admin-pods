@@ -151,7 +151,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         boxSizing: 'border-box',
       }}
     >
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', gap: '5px', marginBottom: '8px' }}>
         <input
           type="text"
           placeholder="Pod name"
@@ -165,33 +165,35 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
           }}
           style={{
             flex: 1,
-            padding: '10px',
+            padding: '6px 8px',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border)',
             color: 'var(--text)',
-            borderRadius: '6px',
+            borderRadius: '4px',
+            fontSize: '11px',
           }}
         />
         <button
           onClick={handleSavePodName}
           disabled={savingPodName}
           style={{
-            padding: '10px 14px',
+            padding: '6px 10px',
             backgroundColor: 'var(--accent)',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '4px',
             fontWeight: 600,
             cursor: 'pointer',
             opacity: savingPodName ? 0.7 : 1,
-            minWidth: '90px',
+            fontSize: '11px',
+            minWidth: '70px',
           }}
         >
           {savingPodName ? 'Saving…' : 'Save'}
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
         <button
           onClick={() => {
             if (!podId) return;
@@ -203,12 +205,13 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
           }}
           style={{
             width: '100%',
-            padding: '10px',
+            padding: '6px 8px',
             backgroundColor: 'var(--accent)',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '4px',
             fontWeight: 700,
+            fontSize: '11px',
             cursor: 'pointer',
           }}
         >
@@ -216,15 +219,15 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         </button>
       </div>
 
-      <section style={{ marginBottom: '16px' }}>
+      <section style={{ marginBottom: '10px' }}>
         <h4
           style={{
             color: 'var(--accent)',
-            fontSize: '12px',
+            fontSize: '10px',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            marginBottom: '8px',
+            marginBottom: '5px',
           }}
         >
           Assign Entity
@@ -232,9 +235,9 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'minmax(180px, 1fr) minmax(140px, 0.7fr)',
-            gap: '10px',
-            marginBottom: '10px',
+            gridTemplateColumns: 'minmax(160px, 1fr) minmax(120px, 0.7fr)',
+            gap: '5px',
+            marginBottom: '6px',
           }}
         >
           <select
@@ -242,11 +245,12 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
             onChange={(event) => setSelectedEntityId(event.target.value ? parseInt(event.target.value, 10) : '')}
             style={{
               width: '100%',
-              padding: '10px',
+              padding: '5px 7px',
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border)',
               color: 'var(--text)',
-              borderRadius: '6px',
+              borderRadius: '4px',
+              fontSize: '11px',
             }}
           >
             <option value="">-- Select Entity --</option>
@@ -263,11 +267,12 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
             onChange={(event) => setRoleTag(event.target.value)}
             style={{
               width: '100%',
-              padding: '10px',
+              padding: '5px 7px',
               backgroundColor: 'var(--bg-primary)',
               border: '1px solid var(--border)',
               color: 'var(--text)',
-              borderRadius: '6px',
+              borderRadius: '4px',
+              fontSize: '11px',
             }}
           />
         </div>
@@ -275,12 +280,13 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
           onClick={handleAssignEntity}
           style={{
             width: '100%',
-            padding: '10px',
+            padding: '6px 8px',
             backgroundColor: 'var(--accent)',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
+            borderRadius: '4px',
             fontWeight: 600,
+            fontSize: '11px',
             cursor: 'pointer',
           }}
         >
@@ -292,17 +298,17 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         <h4
           style={{
             color: 'var(--text-muted)',
-            fontSize: '11px',
+            fontSize: '10px',
             fontWeight: 600,
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
-            marginBottom: '10px',
+            marginBottom: '6px',
           }}
         >
           Current Assignments
         </h4>
         {assignments.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No assignments yet</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '11px' }}>No assignments yet</p>
         ) : (
           <ul
             style={{
@@ -310,32 +316,32 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
               padding: 0,
               margin: 0,
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '10px',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '6px',
             }}
           >
             {assignments.map((assignment) => (
               <li
                 key={assignment.assignmentId}
                 style={{
-                  padding: '10px',
+                  padding: '6px 8px',
                   backgroundColor: 'var(--bg-elevated)',
-                  borderRadius: '6px',
+                  borderRadius: '4px',
                   border: '1px solid var(--border)',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  gap: '10px',
+                  gap: '6px',
                 }}
               >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '13px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {assignment.entity?.displayName || 'Unknown'}
                   </div>
                   {assignment.roleTag && (
                     <div
                       style={{
-                        fontSize: '11px',
+                        fontSize: '10px',
                         color: 'var(--text-muted)',
                         fontFamily: "'Consolas', monospace",
                       }}
@@ -347,15 +353,16 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
                 <button
                   onClick={() => handleDeleteAssignment(assignment.assignmentId)}
                   style={{
-                    padding: '4px 10px',
+                    padding: '3px 7px',
                     backgroundColor: 'var(--danger)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: 500,
                     whiteSpace: 'nowrap',
+                    flexShrink: 0,
                   }}
                 >
                   Remove
