@@ -25,7 +25,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
 
   const isPanelVariant = variant === 'panel';
   const containerStyle = {
-    padding: '16px',
+    padding: '10px',
     width: isPanelVariant ? '100%' : '280px',
     overflowY: 'auto' as const,
     backgroundColor: 'var(--bg-surface)',
@@ -146,24 +146,24 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
     <div style={containerStyle}>
       <h2 style={{ 
         color: 'var(--text)', 
-        fontSize: '13px', 
+        fontSize: '12px', 
         fontWeight: 600, 
         textTransform: 'uppercase', 
         letterSpacing: '0.5px',
-        marginBottom: '16px',
-        paddingBottom: '8px',
+        marginBottom: '10px',
+        paddingBottom: '6px',
         borderBottom: '1px solid var(--border)',
       }}>Entity Library</h2>
 
       {/* Create Entity */}
       <div style={{ 
-        marginBottom: '16px', 
-        padding: '12px', 
+        marginBottom: '10px', 
+        padding: '8px', 
         border: '1px solid var(--border)', 
-        borderRadius: '6px',
+        borderRadius: '4px',
         backgroundColor: 'var(--bg-elevated)',
       }}>
-        <h3 style={{ color: 'var(--accent)', fontSize: '11px', fontWeight: 600, marginBottom: '10px', marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add Entity</h3>
+        <h3 style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 600, marginBottom: '6px', marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add Entity</h3>
         <input
           type="text"
           placeholder="Entity type (e.g., Person, Machine)"
@@ -171,13 +171,13 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
           onChange={(e) => setNewEntityType(e.target.value)}
           style={{ 
             width: '100%', 
-            marginBottom: '8px', 
+            marginBottom: '5px', 
             boxSizing: 'border-box',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border)',
             color: 'var(--text)',
-            padding: '8px',
-            borderRadius: '4px',
+            padding: '5px 6px',
+            borderRadius: '3px',
             fontSize: '11px',
           }}
         />
@@ -188,13 +188,13 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
           onChange={(e) => setNewEntityName(e.target.value)}
           style={{ 
             width: '100%', 
-            marginBottom: '10px', 
+            marginBottom: '6px', 
             boxSizing: 'border-box',
             backgroundColor: 'var(--bg-primary)',
             border: '1px solid var(--border)',
             color: 'var(--text)',
-            padding: '8px',
-            borderRadius: '4px',
+            padding: '5px 6px',
+            borderRadius: '3px',
             fontSize: '11px',
           }}
         />
@@ -206,7 +206,8 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
             border: '1px solid var(--accent)',
             color: 'white',
             fontWeight: 600,
-            padding: '8px',
+            padding: '5px 6px',
+            fontSize: '11px',
           }}
         >Add Entity</button>
       </div>
@@ -219,13 +220,13 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
         onChange={(e) => setFilter(e.target.value)}
         style={{ 
           width: '100%', 
-          marginBottom: '8px', 
+          marginBottom: '5px', 
           boxSizing: 'border-box',
           backgroundColor: 'var(--bg-primary)',
           border: '1px solid var(--border)',
           color: 'var(--text)',
-          padding: '8px',
-          borderRadius: '4px',
+          padding: '5px 6px',
+          borderRadius: '3px',
           fontSize: '11px',
         }}
       />
@@ -236,13 +237,13 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
         onChange={(e) => setSearch(e.target.value)}
         style={{ 
           width: '100%', 
-          marginBottom: '12px', 
+          marginBottom: '8px', 
           boxSizing: 'border-box',
           backgroundColor: 'var(--bg-primary)',
           border: '1px solid var(--border)',
           color: 'var(--text)',
-          padding: '8px',
-          borderRadius: '4px',
+          padding: '5px 6px',
+          borderRadius: '3px',
           fontSize: '11px',
         }}
       />
@@ -250,21 +251,21 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
       {/* Entities List */}
       <h3 style={{ 
         color: 'var(--text-muted)', 
-        fontSize: '11px', 
+        fontSize: '10px', 
         fontWeight: 600, 
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
-        marginBottom: '10px',
+        marginBottom: '6px',
       }}>Entities <span style={{ color: 'var(--accent)', fontFamily: "'Consolas', monospace" }}>({entities.length})</span></h3>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {entities.map((e) => (
           <li
             key={e.entityId}
             style={{
-              marginBottom: '8px',
-              padding: '10px',
+              marginBottom: '5px',
+              padding: '6px 8px',
               backgroundColor: 'var(--bg-elevated)',
-              borderRadius: '4px',
+              borderRadius: '3px',
               border: '1px solid var(--border)',
             }}
           >
@@ -276,26 +277,27 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
                   onChange={(e) => setEditName(e.target.value)}
                   style={{ 
                     width: '100%', 
-                    marginBottom: '8px', 
+                    marginBottom: '5px', 
                     boxSizing: 'border-box',
                     backgroundColor: 'var(--bg-primary)',
                     border: '1px solid var(--border)',
                     color: 'var(--text)',
-                    padding: '6px 8px',
-                    borderRadius: '4px',
+                    padding: '4px 6px',
+                    borderRadius: '3px',
+                    fontSize: '11px',
                   }}
                 />
                 <button
                   onClick={() => handleSaveEdit(e.entityId)}
                   style={{
-                    marginRight: '5px',
-                    padding: '4px 10px',
+                    marginRight: '4px',
+                    padding: '3px 8px',
                     backgroundColor: 'var(--accent)',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                     cursor: 'pointer',
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: 600,
                   }}
                 >
@@ -304,13 +306,13 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
                 <button
                   onClick={() => setEditingId(null)}
                   style={{
-                    padding: '4px 10px',
+                    padding: '3px 8px',
                     backgroundColor: 'var(--bg-elevated)',
                     color: 'var(--text)',
                     border: '1px solid var(--border)',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                     cursor: 'pointer',
-                    fontSize: '11px',
+                    fontSize: '10px',
                   }}
                 >
                   Cancel
@@ -318,23 +320,23 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
               </div>
             ) : (
               <div>
-                <strong style={{ color: 'var(--text)', fontSize: '12px' }}>{e.displayName}</strong> <br />
-                <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>({e.entityType})</small>
-                <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <strong style={{ color: 'var(--text)', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1', minWidth: 0 }}>{e.displayName}</strong>
+                  <small style={{ color: 'var(--text-muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>({e.entityType})</small>
                   <button
                     onClick={() => handleEditEntity(e.entityId, e.displayName)}
                     style={{
-                      marginRight: '6px',
-                      padding: '2px 6px',
+                      padding: '1px 5px',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       backgroundColor: 'var(--bg-elevated)',
                       color: 'var(--text)',
                       border: '1px solid var(--border)',
-                      borderRadius: '4px',
+                      borderRadius: '3px',
                       cursor: 'pointer',
-                      fontSize: '11px',
+                      fontSize: '10px',
+                      flexShrink: 0,
                     }}
                     title="Edit entity"
                     aria-label={`Edit ${e.displayName}`}
@@ -344,16 +346,17 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
                   <button
                     onClick={() => handleDeleteEntity(e.entityId, e.displayName)}
                     style={{
-                      padding: '2px 6px',
+                      padding: '1px 5px',
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       backgroundColor: 'var(--bg-elevated)',
                       color: 'var(--danger)',
                       border: '1px solid var(--border)',
-                      borderRadius: '4px',
+                      borderRadius: '3px',
                       cursor: 'pointer',
-                      fontSize: '11px',
+                      fontSize: '10px',
+                      flexShrink: 0,
                     }}
                     title="Delete entity"
                     aria-label={`Delete ${e.displayName}`}
@@ -362,7 +365,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
                   </button>
                 </div>
                 {e.entityType === 'Document' && (
-                  <div style={{ marginTop: '10px' }}>
+                  <div style={{ marginTop: '6px' }}>
                     <textarea
                       value={getDocumentDraftValue(e)}
                       onChange={(event) => handleDocumentDraftChange(e.entityId, event.target.value)}
@@ -371,15 +374,15 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
                       placeholder="Document content"
                       style={{
                         width: '100%',
-                        minHeight: '120px',
-                        marginTop: '8px',
+                        minHeight: '60px',
+                        marginTop: '5px',
                         boxSizing: 'border-box',
                         backgroundColor: 'var(--bg-primary)',
                         border: '1px solid var(--border)',
                         color: 'var(--text)',
-                        padding: '8px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
+                        padding: '5px 6px',
+                        borderRadius: '3px',
+                        fontSize: '10px',
                         resize: 'vertical',
                       }}
                     />
