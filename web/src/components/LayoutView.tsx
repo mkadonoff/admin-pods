@@ -211,6 +211,18 @@ function FloorMesh({
 
   return (
     <group>
+      {/* Floor label */}
+      <Text
+        position={[assemblyX + floorRadius + 0.5, floorY, assemblyZ]}
+        fontSize={0.5}
+        color="#0078d4"
+        anchorX="left"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor="#ffffff"
+      >
+        {floor.name}
+      </Text>
       {/* Floor platform */}
       <mesh position={[assemblyX, floorY - 0.1, assemblyZ]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[floorRadius, 6]} />
