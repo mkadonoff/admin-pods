@@ -142,7 +142,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
       {assemblies.map((assembly) => {
         const assemblyFloors = floors
           .filter((f) => f.assemblyId === assembly.assemblyId)
-          .sort((a, b) => a.orderIndex - b.orderIndex);
+          .sort((a, b) => b.orderIndex - a.orderIndex);
         const isActive = activeAssemblyId === assembly.assemblyId;
 
         return (
