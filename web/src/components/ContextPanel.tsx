@@ -358,8 +358,8 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'minmax(140px, 1fr) repeat(3, auto)',
-              gap: '6px',
+              gridTemplateColumns: '300px auto auto auto',
+              gap: '8px',
               alignItems: 'center',
               padding: '8px',
               border: '1px dashed var(--border)',
@@ -372,9 +372,9 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
               placeholder="Ring name"
               value={newRingName}
               onChange={(event) => setNewRingName(event.target.value)}
-              style={{ width: '100%', padding: '5px 7px', fontSize: '11px' }}
+              style={{ width: '100%', padding: '5px 7px', fontSize: '11px', boxSizing: 'border-box' }}
             />
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', whiteSpace: 'nowrap' }}>
               Radius:
               <input
                 type="number"
@@ -384,7 +384,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                 style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', whiteSpace: 'nowrap' }}>
               Slots:
               <input
                 type="number"
