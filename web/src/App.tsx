@@ -386,6 +386,7 @@ function App() {
       </header>
 
       <MyPresenceBar
+        digitalTwinId={currentDigitalTwinId}
         selectedEntityId={myPersonEntityId}
         onSelectEntity={setMyPersonEntityId}
         podName={myPresenceInfo.podName}
@@ -487,6 +488,7 @@ function App() {
             }}
           >
             <ContextPanel
+              digitalTwinId={currentDigitalTwinId}
               towers={towers}
               floors={floors}
               selectedFloorId={selectedFloorId}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { entityAPI, Entity } from '../api';
 
 interface MyPresenceBarProps {
+  digitalTwinId: number | null;
   selectedEntityId: number | null;
   onSelectEntity: (entityId: number | null) => void;
   podName?: string;
@@ -9,6 +10,7 @@ interface MyPresenceBarProps {
 }
 
 export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
+  digitalTwinId,
   selectedEntityId,
   onSelectEntity,
   podName,
@@ -21,9 +23,13 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
   useEffect(() => {
     let cancelled = false;
     const loadPeople = async () => {
+      if (!digitalTwinId) {
+        setPeople([]);
+        return;
+      }
       setLoading(true);
       try {
-        const response = await entityAPI.list('Person');
+        const response = await entityAPI.list(digitalTwinId, 'Person');
         if (!cancelled) {
           setPeople(response.data);
           setError(null);
@@ -42,7 +48,7 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, [digitalTwinId, refreshKey]);
 
   const handleChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const value = event.target.value;

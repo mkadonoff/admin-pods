@@ -3,6 +3,7 @@ import { ringAPI, Tower, Floor, Ring } from '../api';
 import { PodDetailsPanel } from './PodDetailsPanel';
 
 interface ContextPanelProps {
+  digitalTwinId: number | null;
   selectedPodId: number | null;
   selectedFloorId: number | null;
   towers: Tower[];
@@ -31,6 +32,7 @@ interface FloorContextContentProps {
 }
 
 export const ContextPanel: React.FC<ContextPanelProps> = ({
+  digitalTwinId,
   selectedPodId,
   selectedFloorId,
   towers,
@@ -127,6 +129,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
       }}>
         {selectedPodId ? (
           <PodDetailsPanel
+            digitalTwinId={digitalTwinId}
             podId={selectedPodId}
             podName={selectedPodInfo.podName}
             onAssignmentsChanged={onAssignmentsChanged}

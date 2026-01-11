@@ -404,14 +404,28 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       setAutoRotateEnabled(false);
     };
 
+    // Use the underlying THREE.EventDispatcher API
+    const target = controls.target;
     controls.addEventListener('start', handleInteraction);
-    controls.addEventListener('change', handleInteraction);
+    controls.addEventListener('end', handleInteraction);
+
+    // Also reset on manual camera changes (wheel, drag, etc)
+    const handleWheel = () => handleInteraction();
+    const handleMouseDown = () => handleInteraction();
+    
+    const domElement = controls.domElement;
+    domElement.addEventListener('wheel', handleWheel, { passive: true });
+    domElement.addEventListener('mousedown', handleMouseDown);
+    domElement.addEventListener('touchstart', handleInteraction);
 
     return () => {
       controls.removeEventListener('start', handleInteraction);
-      controls.removeEventListener('change', handleInteraction);
+      controls.removeEventListener('end', handleInteraction);
+      domElement.removeEventListener('wheel', handleWheel);
+      domElement.removeEventListener('mousedown', handleMouseDown);
+      domElement.removeEventListener('touchstart', handleInteraction);
     };
-  }, []);
+  }, [navigationMode]);
 
   // Place towers in a hexagonal (honeycomb) grid instead of a single line.
   const TowerPositions = useMemo(() => {

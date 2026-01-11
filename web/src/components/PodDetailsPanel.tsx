@@ -17,6 +17,7 @@ interface Entity {
 }
 
 interface PodDetailsPanelProps {
+  digitalTwinId: number | null;
   podId: number | null;
   onAssignmentsChanged?: () => void;
   podName?: string;
@@ -25,6 +26,7 @@ interface PodDetailsPanelProps {
 }
 
 export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
+  digitalTwinId,
   podId,
   onAssignmentsChanged,
   podName,
@@ -45,7 +47,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
       loadAllAssignments();
       loadEntities();
     }
-  }, [podId]);
+  }, [podId, digitalTwinId]);
 
   useEffect(() => {
     if (podId) {
@@ -75,8 +77,12 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
   };
 
   const loadEntities = async () => {
+    if (!digitalTwinId) {
+      setEntities([]);
+      return;
+    }
     try {
-      const response = await entityAPI.list();
+      const response = await entityAPI.list(digitalTwinId);
       setEntities(response.data);
     } catch (error) {
       console.error('Failed to load entities', error);
