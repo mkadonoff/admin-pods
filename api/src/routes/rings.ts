@@ -36,14 +36,9 @@ export default function createRingRoutes(prisma: PrismaClient) {
           },
         });
 
-        const podsData = Array.from({ length: slots }).map((_, idx) => ({
-          floorId: floorIdNumber,
-          ringId: createdRing.ringId,
-          slotIndex: idx,
-          name: `${name} Pod ${idx}`,
-          podType: 'standard',
-        }));
+        const podsData = [];
 
+        // For center ring (radius=0), only create center pod
         if (radiusIndex === 0) {
           podsData.push({
             floorId: floorIdNumber,
@@ -52,6 +47,17 @@ export default function createRingRoutes(prisma: PrismaClient) {
             name: `${name} Center`,
             podType: 'center',
           });
+        } else {
+          // For outer rings, create slot-based pods
+          for (let idx = 0; idx < slots; idx++) {
+            podsData.push({
+              floorId: floorIdNumber,
+              ringId: createdRing.ringId,
+              slotIndex: idx,
+              name: `${name} Pod ${idx}`,
+              podType: 'standard',
+            });
+          }
         }
 
         if (podsData.length > 0) {

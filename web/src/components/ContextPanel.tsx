@@ -13,7 +13,8 @@ interface ContextPanelProps {
     podName?: string;
   };
   onLayoutChanged: () => void;
-  onPodSelect: (id: number) => void;
+  onPodHighlight: (id: number) => void;
+  onPodDetailsOpen: (id: number) => void;
   onAssignmentsChanged: () => void;
   onPodUpdated: () => void;
   onClearPodSelection: () => void;
@@ -25,7 +26,8 @@ interface FloorContextContentProps {
   selectedFloorId: number | null;
   selectedPodId: number | null;
   onLayoutChanged: () => void;
-  onPodSelect: (id: number) => void;
+  onPodHighlight: (id: number) => void;
+  onPodDetailsOpen: (id: number) => void;
 }
 
 export const ContextPanel: React.FC<ContextPanelProps> = ({
@@ -35,7 +37,8 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   floors,
   selectedPodInfo,
   onLayoutChanged,
-  onPodSelect,
+  onPodHighlight,
+  onPodDetailsOpen,
   onAssignmentsChanged,
   onPodUpdated,
   onClearPodSelection,
@@ -136,7 +139,8 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
             selectedFloorId={selectedFloorId}
             selectedPodId={selectedPodId}
             onLayoutChanged={onLayoutChanged}
-            onPodSelect={onPodSelect}
+            onPodHighlight={onPodHighlight}
+            onPodDetailsOpen={onPodDetailsOpen}
           />
         )}
       </div>
@@ -149,7 +153,8 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
   selectedFloorId,
   selectedPodId,
   onLayoutChanged,
-  onPodSelect,
+  onPodHighlight,
+  onPodDetailsOpen,
 }) => {
   const [newRingName, setNewRingName] = useState('');
   const [newRingRadius, setNewRingRadius] = useState(0);
@@ -319,8 +324,16 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                                 return (
                                   <button
                                     key={pod.podId}
-                                    onClick={() => onPodSelect(pod.podId)}
-                                    title={`Pod ${pod.slotIndex === -1 ? 'Center' : pod.slotIndex}`}
+                                    onMouseEnter={() => onPodHighlight(pod.podId)}
+                                    onClick={(e) => {
+                                      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                                        onPodDetailsOpen(pod.podId);
+                                      } else {
+                                        onPodHighlight(pod.podId);
+                                      }
+                                    }}
+                                    onDoubleClick={() => onPodDetailsOpen(pod.podId)}
+                                    title={`Pod ${pod.slotIndex === -1 ? 'Center' : pod.slotIndex} (Double-click or Ctrl+Click for details)`}
                                     style={{
                                       width: '24px',
                                       height: '24px',

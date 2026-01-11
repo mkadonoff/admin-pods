@@ -36,15 +36,6 @@ export default function createAssignmentRoutes(prisma: PrismaClient) {
       const { podId } = req.params;
       const { entityId, roleTag } = req.body;
 
-       // Prevent assigning the same entity to multiple pods
-      const existingAssignment = await prisma.podAssignment.findFirst({
-        where: { entityId },
-      });
-
-      if (existingAssignment) {
-        return res.status(409).json({ error: 'Entity is already assigned to another pod' });
-      }
-
       const assignment = await prisma.podAssignment.create({
         data: {
           podId: parseInt(podId),

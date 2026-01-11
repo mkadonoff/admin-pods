@@ -22,6 +22,7 @@ function App() {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
+  const [showPodDetails, setShowPodDetails] = useState(false);
   const [processRequestNonce, setProcessRequestNonce] = useState(0);
   const [processRequestPodId, setProcessRequestPodId] = useState<number | null>(null);
   const [assignmentsVersion, setAssignmentsVersion] = useState(0);
@@ -186,6 +187,15 @@ function App() {
       refreshFloors(assemblies.map((a) => a.assemblyId));
     }
     refreshAssemblies(); // Update floor counts
+  };
+
+  const handlePodHighlight = (podId: number) => {
+    setSelectedPodId(podId);
+  };
+
+  const handlePodDetailsOpen = (podId: number) => {
+    setSelectedPodId(podId);
+    setShowPodDetails(true);
   };
 
   const handleProcessPod = useCallback((podId: number) => {
@@ -401,7 +411,7 @@ function App() {
               activeAssemblyId={activeAssemblyId}
               selectedFloorId={selectedFloorId}
               selectedPodId={selectedPodId}
-              onPodSelect={setSelectedPodId}
+              onPodSelect={handlePodDetailsOpen}
               assignmentsVersion={assignmentsVersion}
               onLayoutChanged={handleFloorsChanged}
               presencePodId={myPresenceInfo.podId}
@@ -455,13 +465,14 @@ function App() {
               assemblies={assemblies}
               floors={floors}
               selectedFloorId={selectedFloorId}
-              selectedPodId={selectedPodId}
+              selectedPodId={showPodDetails ? selectedPodId : null}
               selectedPodInfo={selectedPodInfo}
               onLayoutChanged={handleFloorsChanged}
-              onPodSelect={setSelectedPodId}
+              onPodHighlight={handlePodHighlight}
+              onPodDetailsOpen={handlePodDetailsOpen}
               onAssignmentsChanged={notifyAssignmentsChanged}
               onPodUpdated={handleFloorsChanged}
-              onClearPodSelection={() => setSelectedPodId(null)}
+              onClearPodSelection={() => { setSelectedPodId(null); setShowPodDetails(false); }}
               onProcessPod={handleProcessPod}
             />
           </div>

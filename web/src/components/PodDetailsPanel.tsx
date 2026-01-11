@@ -136,8 +136,9 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
     return null;
   }
 
-  const globalAssignedEntityIds = new Set(allAssignments.map((assignment) => assignment.entityId));
-  const availableEntities = entities.filter((entity) => !globalAssignedEntityIds.has(entity.entityId));
+  // Only filter out entities already assigned to THIS pod, not all pods globally
+  const currentPodAssignedEntityIds = new Set(assignments.map((assignment) => assignment.entityId));
+  const availableEntities = entities.filter((entity) => !currentPodAssignedEntityIds.has(entity.entityId));
   const isCompanyPod = assignments.some((assignment) => (assignment.entity?.entityType || '').toLowerCase() === 'company');
 
   return (
