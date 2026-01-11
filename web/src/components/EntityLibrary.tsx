@@ -9,11 +9,12 @@ interface Entity {
 }
 
 interface EntityLibraryProps {
+  digitalTwinId: number | null;
   onEntitiesChanged?: () => void;
   variant?: 'sidebar' | 'panel';
 }
 
-export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged, variant = 'sidebar' }) => {
+export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onEntitiesChanged, variant = 'sidebar' }) => {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -38,12 +39,19 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
   };
 
   useEffect(() => {
-    loadEntities();
-  }, [filter, search]);
+    if (digitalTwinId) {
+      loadEntities();
+    } else {
+      setEntities([]);
+    }
+  }, [digitalTwinId, filter, search]);
 
   const loadEntities = async () => {
+    if (!digitalTwinId) {
+      return [];
+    }
     try {
-      const response = await entityAPI.list(filter || undefined, search || undefined);
+      const response = await entityAPI.list(digitalTwinId, filter || undefined, search || undefined);
       setEntities(response.data);
       const nextDrafts: Record<number, string> = {};
       response.data
@@ -60,6 +68,10 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
   };
 
   const handleCreateEntity = async () => {
+    if (!digitalTwinId) {
+      alert('Please select a digital twin first');
+      return;
+    }
     if (!newEntityType || !newEntityName) {
       alert('Please enter entity type and name');
       return;
@@ -68,6 +80,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ onEntitiesChanged,
       await entityAPI.create({
         entityType: newEntityType,
         displayName: newEntityName,
+        digitalTwinId,
       });
       setNewEntityType('');
       setNewEntityName('');

@@ -7,12 +7,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model DigitalTwin {
+  digitalTwinId Int      @id @default(autoincrement())
+  name          String   @unique
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  towers        Tower[]
+  entities      Entity[]
+  
+  @@map("DigitalTwin")
+}
+
 model Tower {
-  towerId   Int      @id @default(autoincrement())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  floors    Floor[]
+  towerId       Int      @id @default(autoincrement())
+  name          String
+  digitalTwinId Int
+  digitalTwin   DigitalTwin @relation(fields: [digitalTwinId], references: [digitalTwinId], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  floors        Floor[]
 
   @@map("Tower")
 }
@@ -63,8 +78,11 @@ model Entity {
   displayName        String
   externalSystemId   String?
   content            String?  @db.NText
+  digitalTwinId      Int
+  digitalTwin        DigitalTwin @relation(fields: [digitalTwinId], references: [digitalTwinId], onDelete: Cascade)
   assignments        PodAssignment[]
 
+  @@unique([digitalTwinId, displayName, entityType])
   @@map("Entity")
 }
 
@@ -75,7 +93,7 @@ model PodAssignment {
   roleTag      String?
   createdAt    DateTime @default(now())
   pod          Pod      @relation(fields: [podId], references: [podId], onDelete: Cascade)
-  entity       Entity   @relation(fields: [entityId], references: [entityId], onDelete: Cascade)
+  entity       Entity   @relation(fields: [entityId], references: [entityId], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([podId, entityId])
   @@map("PodAssignment")

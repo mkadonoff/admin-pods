@@ -4,11 +4,18 @@ import { PrismaClient } from '@prisma/client';
 const router = Router();
 
 export default function createEntityRoutes(prisma: PrismaClient) {
-  // GET /entities?type=Customer&q=acme
+  // GET /entities?digitalTwinId=1&type=Customer&q=acme
   router.get('/entities', async (req: Request, res: Response) => {
     try {
-      const { type, q } = req.query;
-      const where: any = {};
+      const { digitalTwinId, type, q } = req.query;
+      
+      if (!digitalTwinId) {
+        return res.status(400).json({ error: 'digitalTwinId is required' });
+      }
+      
+      const where: any = {
+        digitalTwinId: parseInt(digitalTwinId as string)
+      };
 
       if (type) {
         where.entityType = type;
@@ -27,12 +34,23 @@ export default function createEntityRoutes(prisma: PrismaClient) {
   // POST /entities
   router.post('/entities', async (req: Request, res: Response) => {
     try {
-      const { entityType, displayName, externalSystemId, content } = req.body;
+      const { entityType, displayName, externalSystemId, content, digitalTwinId } = req.body;
+      
+      if (!digitalTwinId) {
+        return res.status(400).json({ error: 'digitalTwinId is required' });
+      }
+      
       const entity = await prisma.entity.create({
-        data: { entityType, displayName, externalSystemId, content },
+        data: { entityType, displayName, externalSystemId, content, digitalTwinId: parseInt(digitalTwinId) },
       });
       res.status(201).json(entity);
-    } catch (error) {
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        return res.status(400).json({ error: 'Entity with this name and type already exists in this digital twin' });
+      }
+      if (error.code === 'P2003') {
+        return res.status(400).json({ error: 'Invalid digital twin ID' });
+      }
       res.status(400).json({ error: 'Failed to create entity' });
     }
   });

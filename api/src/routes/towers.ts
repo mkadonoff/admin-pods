@@ -7,9 +7,17 @@ export default function createTowerRoutes(prisma: PrismaClient) {
   // GET /towers - list all towers with floor count
   router.get('/', async (req: Request, res: Response) => {
     try {
+      const { digitalTwinId } = req.query;
+      
+      const where = digitalTwinId 
+        ? { digitalTwinId: parseInt(digitalTwinId as string) }
+        : {};
+      
       const towers = await prisma.tower.findMany({
+        where,
         orderBy: { name: 'asc' },
         include: {
+          digitalTwin: true,
           _count: { select: { floors: true } },
         },
       });
@@ -58,17 +66,26 @@ export default function createTowerRoutes(prisma: PrismaClient) {
   // POST /towers - create new tower
   router.post('/', async (req: Request, res: Response) => {
     try {
-      const { name } = req.body;
+      const { name, digitalTwinId } = req.body;
       if (!name || typeof name !== 'string' || name.trim() === '') {
         return res.status(400).json({ error: 'Name is required' });
       }
-      const tower = await prisma.tower.create({
-        data: { name: name.trim() },
+      if (!digitalTwinId) {
+        return res.status(400).json({ error: 'Digital twin ID is required' });
+      }
+      const tower = await prisma.tower.create({  
+        data: { 
+          name: name.trim(),
+          digitalTwinId: parseInt(digitalTwinId)
+        },
       });
       res.status(201).json(tower);
     } catch (error: any) {
       if (error.code === 'P2002') {
         return res.status(400).json({ error: 'Tower name already exists' });
+      }
+      if (error.code === 'P2003') {
+        return res.status(400).json({ error: 'Invalid digital twin ID' });
       }
       res.status(500).json({ error: 'Failed to create tower' });
     }

@@ -367,7 +367,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     // Use a conservative uniform spacing based on the largest Tower footprint.
     let maxTowerRadiusWorld = 1;
     for (const Tower of towers) {
-      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
       maxTowerRadiusWorld = Math.max(maxTowerRadiusWorld, getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE);
     }
 
@@ -381,7 +381,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       const { q, r } = axialCoords[idx];
       const x = hexSize * Math.sqrt(3) * (q + r / 2);
       const z = hexSize * (3 / 2) * r;
-      positions[Tower.TowerId] = { x, z };
+      positions[Tower.towerId] = { x, z };
     }
 
     return positions;
@@ -398,8 +398,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
     let maxFloors = 1;
     for (const Tower of towers) {
-      const pos = TowerPositions[Tower.TowerId] ?? { x: 0, z: 0 };
-      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      const pos = TowerPositions[Tower.towerId] ?? { x: 0, z: 0 };
+      const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
       maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
       const radiusWorld = getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE;
       minX = Math.min(minX, pos.x - radiusWorld);
@@ -434,10 +434,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         for (const ring of floor.rings || []) {
           for (const pod of ring.pods || []) {
             if (pod.podId !== podId) continue;
-            const TowerPos = TowerPositions[floor.TowerId] ?? { x: 0, z: 0 };
+            const TowerPos = TowerPositions[floor.towerId] ?? { x: 0, z: 0 };
             const TowerX = TowerPos.x;
             const TowerZ = TowerPos.z;
-            const floorsInTower = floors.filter((f) => f.TowerId === floor.TowerId);
+            const floorsInTower = floors.filter((f) => f.towerId === floor.towerId);
             const sortedFloors = [...floorsInTower].sort((a, b) => a.orderIndex - b.orderIndex);
             const floorIndex = sortedFloors.findIndex((f) => f.floorId === floor.floorId);
             const safeFloorIndex = floorIndex >= 0 ? floorIndex : 0;
@@ -473,7 +473,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     let maxFloors = 1;
 
     for (const Tower of towers) {
-      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
       maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
       const maxRadius = getTowerMaxRadius(TowerFloors);
       maxRadiusIndexPlusOne = Math.max(maxRadiusIndexPlusOne, maxRadius);
@@ -753,13 +753,13 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           <Bounds clip margin={1.5}>
             <group>
               {towers.map((Tower) => {
-                const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+                const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
                 return (
                   <TowerMesh
-                    key={Tower.TowerId}
+                    key={Tower.towerId}
                     Tower={Tower}
                     floors={TowerFloors}
-                    position={TowerPositions[Tower.TowerId] || { x: 0, z: 0 }}
+                    position={TowerPositions[Tower.towerId] || { x: 0, z: 0 }}
                     selectedPodId={selectedPodId}
                     onPodSelect={onPodSelect}
                     presencePodId={presencePodId}
@@ -812,3 +812,4 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     </div>
   );
 };
+

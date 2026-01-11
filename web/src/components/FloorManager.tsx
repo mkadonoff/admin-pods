@@ -49,11 +49,11 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   const handleAddFloor = async () => {
     if (!newFloorName || !activeTowerId) return;
     try {
-      const TowerFloors = floors.filter((f) => f.TowerId === activeTowerId);
+      const TowerFloors = floors.filter((f) => f.towerId === activeTowerId);
       await floorAPI.create({
         name: newFloorName,
         orderIndex: TowerFloors.length,
-        TowerId: activeTowerId,
+        towerId: activeTowerId,
       });
       setNewFloorName('');
       onFloorsChanged();
@@ -68,7 +68,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
     // Get all floors in the same Tower, sorted by orderIndex ascending (bottom to top)
     const TowerFloors = floors
-      .filter((f) => f.TowerId === floor.TowerId)
+      .filter((f) => f.towerId === floor.towerId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
 
     const currentIndex = TowerFloors.findIndex((f) => f.floorId === floorId);
@@ -159,14 +159,14 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
       {towers.map((Tower) => {
         const TowerFloors = floors
-          .filter((f) => f.TowerId === Tower.TowerId)
+          .filter((f) => f.towerId === Tower.towerId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .reverse();
-        const isActive = activeTowerId === Tower.TowerId;
+        const isActive = activeTowerId === Tower.towerId;
 
         return (
           <div
-            key={Tower.TowerId}
+            key={Tower.towerId}
             style={{
               marginBottom: '16px',
               padding: '12px',
@@ -178,23 +178,23 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
           >
             {/* Tower Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-              {editingTowerId === Tower.TowerId ? (
+              {editingTowerId === Tower.towerId ? (
                 <>
                   <input
                     type="text"
                     value={editTowerName}
                     onChange={(e) => setEditTowerName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTowerEdit(Tower.TowerId)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTowerEdit(Tower.towerId)}
                     style={{ flex: 1, marginRight: '5px' }}
                     autoFocus
                   />
-                  <button onClick={() => handleSaveTowerEdit(Tower.TowerId)}>✓</button>
+                  <button onClick={() => handleSaveTowerEdit(Tower.towerId)}>✓</button>
                   <button onClick={() => setEditingTowerId(null)}>✕</button>
                 </>
               ) : (
                 <>
                   <strong
-                    onClick={() => onSelectTower(Tower.TowerId)}
+                    onClick={() => onSelectTower(Tower.towerId)}
                     style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', fontSize: '12px' }}
                   >
                     {Tower.name}
@@ -203,14 +203,14 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                     ({TowerFloors.length} floors)
                   </span>
                   <button
-                    onClick={() => handleEditTower(Tower.TowerId, Tower.name)}
+                    onClick={() => handleEditTower(Tower.towerId, Tower.name)}
                     title="Rename"
                     style={{ padding: '4px 6px', fontSize: '12px' }}
                   >
                     ✏️
                   </button>
                   <button
-                    onClick={() => onDeleteTower(Tower.TowerId)}
+                    onClick={() => onDeleteTower(Tower.towerId)}
                     title="Delete"
                     style={{ color: 'var(--danger)', padding: '4px 6px', fontSize: '12px' }}
                   >
@@ -311,3 +311,4 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     </div>
   );
 };
+

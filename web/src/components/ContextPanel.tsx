@@ -51,7 +51,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
 
   const activeTowerName = useMemo(() => {
     if (!selectedFloor) return undefined;
-    return towers.find((Tower) => Tower.TowerId === selectedFloor.TowerId)?.name;
+    return towers.find((Tower) => Tower.towerId === selectedFloor.towerId)?.name;
   }, [towers, selectedFloor]);
 
   const headerLine = selectedPodId
@@ -432,3 +432,4 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
     </div>
   );
 };
+

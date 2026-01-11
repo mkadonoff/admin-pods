@@ -6,6 +6,7 @@ import { MyPresenceBar } from './components/MyPresenceBar';
 import { ContextPanel } from './components/ContextPanel';
 import { FloorManager } from './components/FloorManager';
 import { EntityLibrary } from './components/EntityLibrary';
+import DigitalTwinSelector from './components/DigitalTwinSelector';
 import { floorAPI, towerAPI, healthAPI, Tower, Floor, ApiHealth } from './api';
 
 const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
@@ -13,6 +14,10 @@ const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
 function App() {
   const gitCommit = import.meta.env.VITE_GIT_COMMIT;
   const versionLabel = gitCommit ? gitCommit.slice(0, 7) : 'dev';
+  
+  // Digital Twin state
+  const [currentDigitalTwinId, setCurrentDigitalTwinId] = useState<number | null>(null);
+  
   // Tower state
   const [towers, settowers] = useState<Tower[]>([]);
   const [activeTowerId, setActiveTowerId] = useState<number | null>(null);
@@ -36,15 +41,19 @@ function App() {
 
   // Load towers
   const refreshtowers = useCallback(async () => {
+    if (!currentDigitalTwinId) {
+      settowers([]);
+      return [];
+    }
     try {
-      const response = await towerAPI.list();
+      const response = await towerAPI.list(currentDigitalTwinId);
       settowers(response.data);
       return response.data;
     } catch (error) {
       console.error('Failed to load towers', error);
       return [];
     }
-  }, []);
+  }, [currentDigitalTwinId]);
 
   // Load floors for all towers
   const refreshFloors = useCallback(async (TowerIds: number[]) => {
@@ -60,17 +69,23 @@ function App() {
     }
   }, []);
 
-  // Initial load
+  // Load towers when digital twin changes
   useEffect(() => {
+    if (!currentDigitalTwinId) {
+      settowers([]);
+      setFloors([]);
+      setActiveTowerId(null);
+      return;
+    }
     (async () => {
       const loadedtowers = await refreshtowers();
       if (loadedtowers.length > 0) {
-        const ids = loadedtowers.map((a: Tower) => a.TowerId);
+        const ids = loadedtowers.map((a: Tower) => a.towerId);
         setActiveTowerId(ids[0]);
         await refreshFloors(ids);
       }
     })();
-  }, []);
+  }, [currentDigitalTwinId, refreshtowers]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -120,23 +135,27 @@ function App() {
   // Reload floors when towers change
   useEffect(() => {
     if (towers.length > 0) {
-      const ids = towers.map((a) => a.TowerId);
+      const ids = towers.map((a) => a.towerId);
       refreshFloors(ids);
     }
   }, [towers, refreshFloors]);
 
   // Create new Tower
   const handleCreateTower = async () => {
+    if (!currentDigitalTwinId) {
+      alert('Please select a digital twin first');
+      return;
+    }
     const name = newTowerName.trim();
     if (!name) {
       alert('Please enter an Tower name');
       return;
     }
     try {
-      const response = await towerAPI.create(name);
+      const response = await towerAPI.create({ name, digitalTwinId: currentDigitalTwinId });
       setNewTowerName('');
       await refreshtowers();
-      setActiveTowerId(response.data.TowerId);
+      setActiveTowerId(response.data.towerId);
     } catch (error: any) {
       console.error('Failed to create Tower', error);
       alert(error.response?.data?.error || 'Failed to create Tower');
@@ -145,12 +164,12 @@ function App() {
 
   // Delete Tower
   const handleDeleteTower = async (TowerId: number) => {
-    const Tower = towers.find((a) => a.TowerId === TowerId);
+    const Tower = towers.find((a) => a.towerId === TowerId);
     if (!confirm(`Delete Tower "${Tower?.name}"? This will delete all floors and pods.`)) return;
     try {
       await towerAPI.delete(TowerId);
       if (activeTowerId === TowerId) {
-        setActiveTowerId(towers.find((a) => a.TowerId !== TowerId)?.TowerId ?? null);
+        setActiveTowerId(towers.find((a) => a.towerId !== TowerId)?.towerId ?? null);
       }
       await refreshtowers();
     } catch (error) {
@@ -174,7 +193,7 @@ function App() {
     setAssignmentsVersion((v) => v + 1);
     // Refresh floors to get updated assignment data
     if (towers.length > 0) {
-      refreshFloors(towers.map((a) => a.TowerId));
+      refreshFloors(towers.map((a) => a.towerId));
     }
   };
 
@@ -184,7 +203,7 @@ function App() {
 
   const handleFloorsChanged = () => {
     if (towers.length > 0) {
-      refreshFloors(towers.map((a) => a.TowerId));
+      refreshFloors(towers.map((a) => a.towerId));
     }
     refreshtowers(); // Update floor counts
   };
@@ -213,7 +232,7 @@ function App() {
       for (const ring of floor.rings || []) {
         for (const pod of ring.pods || []) {
           if (pod.podId === selectedPodId) {
-            const Tower = towers.find((a) => a.TowerId === floor.TowerId);
+            const Tower = towers.find((a) => a.towerId === floor.towerId);
             return {
               TowerName: Tower?.name,
               floorName: floor.name,
@@ -331,6 +350,12 @@ function App() {
             </div>
           </div>
         </div>
+
+        {/* Digital Twin Selector */}
+        <DigitalTwinSelector
+          currentDigitalTwinId={currentDigitalTwinId}
+          onDigitalTwinChange={setCurrentDigitalTwinId}
+        />
 
         {/* Tower controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -488,7 +513,7 @@ function App() {
             minHeight: 0,
           }}
         >
-          <EntityLibrary variant="sidebar" onEntitiesChanged={notifyEntitiesChanged} />
+          <EntityLibrary variant="sidebar" digitalTwinId={currentDigitalTwinId} onEntitiesChanged={notifyEntitiesChanged} />
         </div>
       </div>
     </div>
@@ -496,3 +521,4 @@ function App() {
 }
 
 export default App;
+

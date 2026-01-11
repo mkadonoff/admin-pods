@@ -16,9 +16,23 @@ export interface ApiHealth {
 }
 
 // Types
+export interface DigitalTwin {
+  digitalTwinId: number;
+  name: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    towers: number;
+    entities: number;
+  };
+}
+
 export interface Tower {
   towerId: number;
   name: string;
+  digitalTwinId: number;
+  digitalTwin?: DigitalTwin;
   createdAt: string;
   updatedAt: string;
   _count?: { floors: number };
@@ -58,6 +72,8 @@ export interface Entity {
   displayName: string;
   externalSystemId: string | null;
   content?: string | null;
+  digitalTwinId: number;
+  digitalTwin?: DigitalTwin;
 }
 
 export interface PodAssignment {
@@ -69,11 +85,23 @@ export interface PodAssignment {
   entity?: Entity;
 }
 
+// Digital Twins
+export const digitalTwinAPI = {
+  list: () => API.get<DigitalTwin[]>('/digital-twins'),
+  get: (id: number) => API.get<DigitalTwin & { towers: Tower[]; entities: Entity[] }>(`/digital-twins/${id}`),
+  create: (data: { name: string; description?: string }) => API.post<DigitalTwin>('/digital-twins', data),
+  update: (id: number, data: { name?: string; description?: string }) => API.patch<DigitalTwin>(`/digital-twins/${id}`, data),
+  delete: (id: number) => API.delete(`/digital-twins/${id}`),
+};
+
 // Towers
 export const towerAPI = {
-  list: () => API.get<Tower[]>('/towers'),
+  list: (digitalTwinId?: number) => {
+    const params = digitalTwinId ? { digitalTwinId } : {};
+    return API.get<Tower[]>('/towers', { params });
+  },
   get: (id: number) => API.get<Tower & { floors: Floor[] }>(`/towers/${id}`),
-  create: (name: string) => API.post<Tower>('/towers', { name }),
+  create: (data: { name: string; digitalTwinId: number }) => API.post<Tower>('/towers', data),
   update: (id: number, name: string) => API.patch<Tower>(`/towers/${id}`, { name }),
   delete: (id: number) => API.delete(`/towers/${id}`),
 };
@@ -109,8 +137,9 @@ export const podAPI = {
 
 // Entities
 export const entityAPI = {
-  list: (type?: string, q?: string) => API.get<Entity[]>('/entities', { params: { type, q } }),
-  create: (data: { entityType: string; displayName: string; externalSystemId?: string; content?: string }) =>
+  list: (digitalTwinId: number, type?: string, q?: string) => 
+    API.get<Entity[]>('/entities', { params: { digitalTwinId, type, q } }),
+  create: (data: { entityType: string; displayName: string; digitalTwinId: number; externalSystemId?: string; content?: string }) =>
     API.post<Entity>('/entities', data),
   update: (id: number, data: Partial<{ displayName: string; externalSystemId: string; content: string }>) =>
     API.patch<Entity>(`/entities/${id}`, data),
