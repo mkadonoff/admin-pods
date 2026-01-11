@@ -8,7 +8,10 @@ export default function createAssignmentRoutes(prisma: PrismaClient) {
   router.get('/assignments', async (req: Request, res: Response) => {
     try {
       const assignments = await prisma.podAssignment.findMany({
-        include: { entity: true },
+        include: { 
+          entity: true,
+          pod: { select: { podId: true, name: true } }
+        },
       });
       res.json(assignments);
     } catch (error) {

@@ -3,9 +3,11 @@ import { assignmentAPI, entityAPI, podAPI } from '../api';
 
 interface Assignment {
   assignmentId: number;
+  podId: number;
   entityId: number;
   roleTag?: string | null;
   entity?: { displayName: string; entityType?: string };
+  pod?: { name?: string };
 }
 
 interface Entity {
@@ -86,6 +88,32 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
       alert('Please select an entity');
       return;
     }
+
+    // Check if entity is already assigned to a different pod
+    const existingAssignment = allAssignments.find((a) => a.entityId === selectedEntityId && a.podId !== podId);
+    
+    if (existingAssignment) {
+      const entityName = entities.find((e) => e.entityId === selectedEntityId)?.displayName || 'Entity';
+      const existingPodName = existingAssignment.pod?.name || `Pod ${existingAssignment.podId}`;
+      
+      const confirmed = window.confirm(
+        `${entityName} is currently assigned to "${existingPodName}".\n\nDo you want to reassign it to this pod?`
+      );
+      
+      if (!confirmed) {
+        return;
+      }
+
+      // Remove the old assignment first
+      try {
+        await assignmentAPI.delete(existingAssignment.assignmentId);
+      } catch (error: any) {
+        console.error('Failed to remove old assignment:', error);
+        alert(`Error removing old assignment: ${error.response?.data?.error || error.message}`);
+        return;
+      }
+    }
+
     try {
       await assignmentAPI.create(podId, {
         entityId: selectedEntityId as number,
@@ -136,7 +164,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
     return null;
   }
 
-  // Only filter out entities already assigned to THIS pod, not all pods globally
+  // Filter out entities already assigned to THIS pod (prevent duplicate assignments to same pod)
   const currentPodAssignedEntityIds = new Set(assignments.map((assignment) => assignment.entityId));
   const availableEntities = entities.filter((entity) => !currentPodAssignedEntityIds.has(entity.entityId));
   const isCompanyPod = assignments.some((assignment) => (assignment.entity?.entityType || '').toLowerCase() === 'company');
