@@ -66,9 +66,27 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     const floor = floors.find((f) => f.floorId === floorId);
     if (!floor) return;
 
-    const newOrder = direction === 'up' ? floor.orderIndex - 1 : floor.orderIndex + 1;
+    // Get all floors in the same assembly, sorted by orderIndex ascending (bottom to top)
+    const assemblyFloors = floors
+      .filter((f) => f.assemblyId === floor.assemblyId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+    const currentIndex = assemblyFloors.findIndex((f) => f.floorId === floorId);
+    
+    // Determine target index based on direction (up = higher index, higher orderIndex)
+    const targetIndex = direction === 'up' ? currentIndex + 1 : currentIndex - 1;
+    
+    // Check bounds
+    if (targetIndex < 0 || targetIndex >= assemblyFloors.length) return;
+
+    const targetFloor = assemblyFloors[targetIndex];
+
+    // Swap orderIndex values - wait for both to complete before refreshing
     try {
-      await floorAPI.update(floorId, { orderIndex: newOrder });
+      await Promise.all([
+        floorAPI.update(floorId, { orderIndex: targetFloor.orderIndex }),
+        floorAPI.update(targetFloor.floorId, { orderIndex: floor.orderIndex })
+      ]);
       onFloorsChanged();
     } catch (error) {
       console.error('Failed to reorder floor', error);
@@ -142,7 +160,8 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
       {assemblies.map((assembly) => {
         const assemblyFloors = floors
           .filter((f) => f.assemblyId === assembly.assemblyId)
-          .sort((a, b) => b.orderIndex - a.orderIndex);
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .reverse();
         const isActive = activeAssemblyId === assembly.assemblyId;
 
         return (
