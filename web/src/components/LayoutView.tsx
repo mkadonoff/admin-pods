@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Tower, Floor, Ring } from '../api';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 
 const POD_RADIUS = 0.75;
 const POD_HEIGHT = POD_RADIUS * 0.8 * 2;  // 1.2 - matches diameter for 1:1 ratio
@@ -66,6 +67,7 @@ function PodMesh({
   isSelected,
   hasAssignment,
   onClick,
+  onDoubleClick,
   isPresencePod = false,
   opacity = 1,
 }: {
@@ -73,6 +75,7 @@ function PodMesh({
   isSelected: boolean;
   hasAssignment: boolean;
   onClick: () => void;
+  onDoubleClick?: () => void;
   isPresencePod?: boolean;
   opacity?: number;
 }) {
@@ -90,7 +93,7 @@ function PodMesh({
   const windowOffset = POD_RADIUS * 0.8 - 0.02; // keeps windows slightly inset to avoid z-fighting
 
   return (
-    <group position={position} onClick={onClick}>
+    <group position={position} onClick={onClick} onDoubleClick={onDoubleClick}>
       <mesh>
         <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
         <meshStandardMaterial color={podColor} transparent={opacity < 1} opacity={opacity} />
@@ -141,6 +144,7 @@ function RingMesh({
   onPodSelect,
   presencePodId,
   dimPodId,
+  onPodDoubleClick,
 }: {
   ring: Ring;
   floorY: number;
@@ -150,6 +154,7 @@ function RingMesh({
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
   dimPodId?: number | null;
+  onPodDoubleClick?: (podId: number) => void;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -176,6 +181,7 @@ function RingMesh({
             isSelected={selectedPodId === pod.podId}
             hasAssignment={hasAssignment}
             onClick={() => onPodSelect(pod.podId)}
+            onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={presencePodId === pod.podId}
             opacity={isDimmed ? 0.2 : 1}
           />
@@ -195,6 +201,7 @@ function FloorMesh({
   onPodSelect,
   presencePodId,
   dimPodId,
+  onPodDoubleClick,
 }: {
   floor: Floor;
   floorIndex: number;
@@ -204,6 +211,7 @@ function FloorMesh({
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
   dimPodId?: number | null;
+  onPodDoubleClick?: (podId: number) => void;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
@@ -252,6 +260,7 @@ function FloorMesh({
           onPodSelect={onPodSelect}
           presencePodId={presencePodId}
           dimPodId={dimPodId}
+          onPodDoubleClick={onPodDoubleClick}
         />
       ))}
     </group>
@@ -267,6 +276,7 @@ function TowerMesh({
   onPodSelect,
   presencePodId,
   dimPodId,
+  onPodDoubleClick,
 }: {
   Tower: Tower;
   floors: Floor[];
@@ -275,6 +285,7 @@ function TowerMesh({
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
   dimPodId?: number | null;
+  onPodDoubleClick?: (podId: number) => void;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
   const labelY = sortedFloors.length * FLOOR_SPACING + 1;
@@ -303,6 +314,7 @@ function TowerMesh({
           onPodSelect={onPodSelect}
           presencePodId={presencePodId}
           dimPodId={dimPodId}
+          onPodDoubleClick={onPodDoubleClick}
         />
       ))}
     </group>
@@ -353,11 +365,53 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
   const [workflow, setWorkflow] = useState<WorkflowRun | null>(null);
 
+  // Camera animation state for smooth focus transitions
+  const [cameraAnimation, setCameraAnimation] = useState<{
+    from: Vec3;
+    to: Vec3;
+    startTime: number;
+    duration: number;
+  } | null>(null);
+  const [previousCameraPosition, setPreviousCameraPosition] = useState<Vec3 | null>(null);
+  const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
+  const lastInteractionTimeRef = useRef<number>(Date.now());
+
   const navStateRef = useRef({
     position: INITIAL_CAMERA_POSITION as Vec3,
     yawStep: 0,
     pitchStep: 0,
   });
+
+  const orbitControlsRef = useRef<OrbitControlsImpl>(null);
+
+  // Auto-rotate delay: enable after 30 seconds of inactivity
+  useEffect(() => {
+    const checkIdleTime = setInterval(() => {
+      const idleTime = Date.now() - lastInteractionTimeRef.current;
+      setAutoRotateEnabled(idleTime > 30000); // 30 seconds
+    }, 1000);
+
+    return () => clearInterval(checkIdleTime);
+  }, []);
+
+  // Reset auto-rotate timer on user interaction
+  useEffect(() => {
+    const controls = orbitControlsRef.current;
+    if (!controls) return;
+
+    const handleInteraction = () => {
+      lastInteractionTimeRef.current = Date.now();
+      setAutoRotateEnabled(false);
+    };
+
+    controls.addEventListener('start', handleInteraction);
+    controls.addEventListener('change', handleInteraction);
+
+    return () => {
+      controls.removeEventListener('start', handleInteraction);
+      controls.removeEventListener('change', handleInteraction);
+    };
+  }, []);
 
   // Place towers in a hexagonal (honeycomb) grid instead of a single line.
   const TowerPositions = useMemo(() => {
@@ -464,6 +518,23 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     [floors, TowerPositions],
   );
 
+  // Smooth camera focus with easing
+  const focusOnPosition = useCallback((targetPos: Vec3, distance: number = 10) => {
+    setPreviousCameraPosition(cameraPosition);
+    const offset: Vec3 = [0, distance * 0.4, distance * 0.8];
+    const newPos: Vec3 = [
+      targetPos[0] + offset[0],
+      targetPos[1] + offset[1],
+      targetPos[2] + offset[2],
+    ];
+    setCameraAnimation({
+      from: cameraPosition,
+      to: newPos,
+      startTime: Date.now(),
+      duration: 800, // ms
+    });
+  }, [cameraPosition]);
+
   const layoutExtents = useMemo(() => {
     if (towers.length === 0) {
       return { zOutside: 10, maxFloors: 1 };
@@ -565,6 +636,27 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       if (event.key === 'p' || event.key === 'P') {
         onRequestProcessSelected?.();
       }
+      if (event.key === 'f' || event.key === 'F') {
+        event.preventDefault();
+        if (selectedPodId) {
+          const info = findPodSceneInfo(selectedPodId);
+          if (info) {
+            focusOnPosition(info.origin);
+          }
+        }
+      }
+      if (event.key === 'b' || event.key === 'B') {
+        event.preventDefault();
+        if (previousCameraPosition) {
+          setCameraAnimation({
+            from: cameraPosition,
+            to: previousCameraPosition,
+            startTime: Date.now(),
+            duration: 800,
+          });
+          setPreviousCameraPosition(null);
+        }
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -641,8 +733,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             break;
           case 'f':
           case 'F':
-            event.preventDefault();
-            move([0, -1, 0]);
+            // In navigation mode, F moves down, not focus
+            if (navigationMode) {
+              event.preventDefault();
+              move([0, -1, 0]);
+            }
             break;
           case 'q':
           case 'Q':
@@ -682,6 +777,31 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }, [navigationMode, gl.domElement]);
 
     useFrame((_, delta) => {
+      // Camera animation for smooth focus transitions
+      if (cameraAnimation && !navigationMode) {
+        const elapsed = Date.now() - cameraAnimation.startTime;
+        const t = Math.min(1, elapsed / cameraAnimation.duration);
+        // Easing function (ease-out cubic)
+        const eased = 1 - Math.pow(1 - t, 3);
+        
+        const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+        const newPos: Vec3 = [
+          lerp(cameraAnimation.from[0], cameraAnimation.to[0], eased),
+          lerp(cameraAnimation.from[1], cameraAnimation.to[1], eased),
+          lerp(cameraAnimation.from[2], cameraAnimation.to[2], eased),
+        ];
+        
+        camera.position.set(...newPos);
+        if (orbitControlsRef.current) {
+          orbitControlsRef.current.update();
+        }
+        
+        if (t >= 1) {
+          setCameraAnimation(null);
+          setCameraPosition(newPos);
+        }
+      }
+
       // Workflow animation tick
       setWorkflow((current) => {
         if (!current?.active) return current;
@@ -743,7 +863,23 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e8eef3' }}>
         <Canvas camera={{ position: cameraPosition, fov: 50 }} style={{ width: '100%', height: '100%' }}>
           <color attach="background" args={['#e8eef3']} />
-          {!navigationMode && <OrbitControls makeDefault enablePan enableZoom enableRotate />}
+          {!navigationMode && (
+            <OrbitControls
+              ref={orbitControlsRef}
+              makeDefault
+              enablePan
+              enableZoom
+              enableRotate
+              minDistance={5}
+              maxDistance={50}
+              minPolarAngle={0}
+              maxPolarAngle={Math.PI / 2}
+              enableDamping
+              dampingFactor={0.05}
+              autoRotate={autoRotateEnabled}
+              autoRotateSpeed={0.5}
+            />
+          )}
           <ambientLight intensity={0.7} />
           <directionalLight position={[10, 20, 10]} intensity={0.8} />
           <gridHelper args={[100, 50, '#c0c8d0', '#d8e0e8']} />
@@ -764,6 +900,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                     onPodSelect={onPodSelect}
                     presencePodId={presencePodId}
                     dimPodId={workflowDimPodId}
+                    onPodDoubleClick={(podId) => {
+                      const info = findPodSceneInfo(podId);
+                      if (info) focusOnPosition(info.origin);
+                    }}
                   />
                 );
               })}
@@ -804,7 +944,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             </span>
           </span>
           <span style={{ color: 'var(--text-muted)' }}>
-            <strong>Nav:</strong> N toggle, Esc exit · Move: W/S A/D R/F · Look: Q/E arrows · Reset: 0 · <strong>Process:</strong> P
+            <strong>Nav:</strong> N toggle, Esc exit · Move: W/S A/D R/F · Look: Q/E arrows · Reset: 0 · <strong>Process:</strong> P · <strong>Focus:</strong> F or double-click · Back: B
           </span>
         </div>
       </div>
