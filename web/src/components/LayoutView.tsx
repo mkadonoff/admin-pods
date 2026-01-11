@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Assembly, Floor, Ring } from '../api';
+import { Tower, Floor, Ring } from '../api';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 
@@ -7,12 +7,12 @@ const POD_RADIUS = 0.75;
 const POD_HEIGHT = POD_RADIUS * 0.8 * 2;  // 1.2 - matches diameter for 1:1 ratio
 const FLOOR_SPACING = POD_HEIGHT * 1.35;  // brings next floor closer to pod roof
 const FLOOR_RADIUS_SCALE = 2.0; // reduced platform diameter
-const ASSEMBLY_GAP = 3;
+const Tower_GAP = 3;
 const INITIAL_CAMERA_POSITION: [number, number, number] = [0, 5, 15];
 
 type Vec3 = [number, number, number];
 
-type AssemblyPosition = { x: number; z: number };
+type TowerPosition = { x: number; z: number };
 
 // Axial hex coords (pointy-top)
 type Axial = { q: number; r: number };
@@ -49,8 +49,8 @@ function generateHexSpiralCoords(count: number): Axial[] {
   return coords.slice(0, count);
 }
 
-// Calculate max ring radius for an assembly
-function getAssemblyMaxRadius(floors: Floor[]): number {
+// Calculate max ring radius for an Tower
+function getTowerMaxRadius(floors: Floor[]): number {
   let maxRadius = 1;
   for (const floor of floors) {
     for (const ring of floor.rings || []) {
@@ -135,8 +135,8 @@ function PodMesh({
 function RingMesh({
   ring,
   floorY,
-  assemblyX,
-  assemblyZ,
+  TowerX,
+  TowerZ,
   selectedPodId,
   onPodSelect,
   presencePodId,
@@ -144,8 +144,8 @@ function RingMesh({
 }: {
   ring: Ring;
   floorY: number;
-  assemblyX: number;
-  assemblyZ: number;
+  TowerX: number;
+  TowerZ: number;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
@@ -160,12 +160,12 @@ function RingMesh({
         let x: number, z: number;
         if (pod.slotIndex === -1) {
           // Center pod
-          x = assemblyX;
-          z = assemblyZ;
+          x = TowerX;
+          z = TowerZ;
         } else {
           const angle = (2 * Math.PI * pod.slotIndex) / ring.slots;
-          x = assemblyX + radius * Math.cos(angle);
-          z = assemblyZ + radius * Math.sin(angle);
+          x = TowerX + radius * Math.cos(angle);
+          z = TowerZ + radius * Math.sin(angle);
         }
         const hasAssignment = (pod.assignments?.length ?? 0) > 0;
         const isDimmed = dimPodId === pod.podId;
@@ -189,8 +189,8 @@ function RingMesh({
 function FloorMesh({
   floor,
   floorIndex,
-  assemblyX,
-  assemblyZ,
+  TowerX,
+  TowerZ,
   selectedPodId,
   onPodSelect,
   presencePodId,
@@ -198,8 +198,8 @@ function FloorMesh({
 }: {
   floor: Floor;
   floorIndex: number;
-  assemblyX: number;
-  assemblyZ: number;
+  TowerX: number;
+  TowerZ: number;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
@@ -207,13 +207,13 @@ function FloorMesh({
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
-  const floorRadius = getAssemblyMaxRadius([floor]) * FLOOR_RADIUS_SCALE;
+  const floorRadius = getTowerMaxRadius([floor]) * FLOOR_RADIUS_SCALE;
 
   return (
     <group>
       {/* Floor label */}
       <Text
-        position={[assemblyX + floorRadius + 0.5, floorY, assemblyZ]}
+        position={[TowerX + floorRadius + 0.5, floorY, TowerZ]}
         fontSize={0.5}
         color="#0078d4"
         anchorX="left"
@@ -224,12 +224,12 @@ function FloorMesh({
         {floor.name}
       </Text>
       {/* Floor platform */}
-      <mesh position={[assemblyX, floorY - 0.1, assemblyZ]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[TowerX, floorY - 0.1, TowerZ]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[floorRadius, 6]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.9} />
       </mesh>
       {/* Floor edge ring for visibility */}
-      <mesh position={[assemblyX, floorY - 0.095, assemblyZ]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[TowerX, floorY - 0.095, TowerZ]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[Math.max(floorRadius - 0.08, 0), floorRadius, 6]} />
         <meshStandardMaterial
           color="#0078d4"
@@ -246,8 +246,8 @@ function FloorMesh({
           key={ring.ringId}
           ring={ring}
           floorY={floorY}
-          assemblyX={assemblyX}
-          assemblyZ={assemblyZ}
+          TowerX={TowerX}
+          TowerZ={TowerZ}
           selectedPodId={selectedPodId}
           onPodSelect={onPodSelect}
           presencePodId={presencePodId}
@@ -258,9 +258,9 @@ function FloorMesh({
   );
 }
 
-// 3D Assembly component - renders floors stacked with a label
-function AssemblyMesh({
-  assembly,
+// 3D Tower component - renders floors stacked with a label
+function TowerMesh({
+  Tower,
   floors,
   position,
   selectedPodId,
@@ -268,9 +268,9 @@ function AssemblyMesh({
   presencePodId,
   dimPodId,
 }: {
-  assembly: Assembly;
+  Tower: Tower;
   floors: Floor[];
-  position: AssemblyPosition;
+  position: TowerPosition;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
   presencePodId?: number | null;
@@ -281,7 +281,7 @@ function AssemblyMesh({
 
   return (
     <group>
-      {/* Assembly label */}
+      {/* Tower label */}
       <Text
         position={[position.x, labelY, position.z]}
         fontSize={0.8}
@@ -289,7 +289,7 @@ function AssemblyMesh({
         anchorX="center"
         anchorY="bottom"
       >
-        {assembly.name}
+        {Tower.name}
       </Text>
       {/* Floors */}
       {sortedFloors.map((floor, idx) => (
@@ -297,8 +297,8 @@ function AssemblyMesh({
           key={floor.floorId}
           floor={floor}
           floorIndex={idx}
-          assemblyX={position.x}
-          assemblyZ={position.z}
+          TowerX={position.x}
+          TowerZ={position.z}
           selectedPodId={selectedPodId}
           onPodSelect={onPodSelect}
           presencePodId={presencePodId}
@@ -310,9 +310,9 @@ function AssemblyMesh({
 }
 
 interface LayoutViewProps {
-  assemblies: Assembly[];
+  towers: Tower[];
   floors: Floor[];
-  activeAssemblyId: number | null;
+  activeTowerId: number | null;
   selectedFloorId: number | null;
   selectedPodId: number | null;
   onPodSelect: (podId: number) => void;
@@ -324,9 +324,9 @@ interface LayoutViewProps {
 }
 
 export const LayoutView: React.FC<LayoutViewProps> = ({
-  assemblies,
+  towers,
   floors,
-  activeAssemblyId: _activeAssemblyId,
+  activeTowerId: _activeTowerId,
   selectedFloorId: _selectedFloorId,
   selectedPodId,
   onPodSelect,
@@ -359,37 +359,37 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     pitchStep: 0,
   });
 
-  // Place assemblies in a hexagonal (honeycomb) grid instead of a single line.
-  const assemblyPositions = useMemo(() => {
-    const positions: Record<number, AssemblyPosition> = {};
-    if (assemblies.length === 0) return positions;
+  // Place towers in a hexagonal (honeycomb) grid instead of a single line.
+  const TowerPositions = useMemo(() => {
+    const positions: Record<number, TowerPosition> = {};
+    if (towers.length === 0) return positions;
 
-    // Use a conservative uniform spacing based on the largest assembly footprint.
-    let maxAssemblyRadiusWorld = 1;
-    for (const assembly of assemblies) {
-      const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
-      maxAssemblyRadiusWorld = Math.max(maxAssemblyRadiusWorld, getAssemblyMaxRadius(assemblyFloors) * FLOOR_RADIUS_SCALE);
+    // Use a conservative uniform spacing based on the largest Tower footprint.
+    let maxTowerRadiusWorld = 1;
+    for (const Tower of towers) {
+      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      maxTowerRadiusWorld = Math.max(maxTowerRadiusWorld, getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE);
     }
 
-    const minCenterDist = 2 * maxAssemblyRadiusWorld + ASSEMBLY_GAP;
+    const minCenterDist = 2 * maxTowerRadiusWorld + Tower_GAP;
     const hexSize = minCenterDist / Math.sqrt(3); // adjacent center distance is sqrt(3)*size
 
-    const axialCoords = generateHexSpiralCoords(assemblies.length);
+    const axialCoords = generateHexSpiralCoords(towers.length);
 
-    for (let idx = 0; idx < assemblies.length; idx++) {
-      const assembly = assemblies[idx];
+    for (let idx = 0; idx < towers.length; idx++) {
+      const Tower = towers[idx];
       const { q, r } = axialCoords[idx];
       const x = hexSize * Math.sqrt(3) * (q + r / 2);
       const z = hexSize * (3 / 2) * r;
-      positions[assembly.assemblyId] = { x, z };
+      positions[Tower.TowerId] = { x, z };
     }
 
     return positions;
-  }, [assemblies, floors]);
+  }, [towers, floors]);
 
-  // Camera position based on assemblies
+  // Camera position based on towers
   const idealCameraPosition = useMemo<[number, number, number]>(() => {
-    if (assemblies.length === 0) return INITIAL_CAMERA_POSITION;
+    if (towers.length === 0) return INITIAL_CAMERA_POSITION;
 
     let minX = Infinity;
     let maxX = -Infinity;
@@ -397,11 +397,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     let maxZ = -Infinity;
 
     let maxFloors = 1;
-    for (const assembly of assemblies) {
-      const pos = assemblyPositions[assembly.assemblyId] ?? { x: 0, z: 0 };
-      const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
-      maxFloors = Math.max(maxFloors, assemblyFloors.length || 1);
-      const radiusWorld = getAssemblyMaxRadius(assemblyFloors) * FLOOR_RADIUS_SCALE;
+    for (const Tower of towers) {
+      const pos = TowerPositions[Tower.TowerId] ?? { x: 0, z: 0 };
+      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
+      const radiusWorld = getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE;
       minX = Math.min(minX, pos.x - radiusWorld);
       maxX = Math.max(maxX, pos.x + radiusWorld);
       minZ = Math.min(minZ, pos.z - radiusWorld);
@@ -414,10 +414,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
     // Pull the camera back along +Z to fit the entire layout.
     return [centerX, maxFloors * FLOOR_SPACING, centerZ + extent * 0.9 + 15];
-  }, [assemblies, floors, assemblyPositions]);
+  }, [towers, floors, TowerPositions]);
 
   useEffect(() => {
-    if (assemblies.length === 0) {
+    if (towers.length === 0) {
       setCameraPosition(INITIAL_CAMERA_POSITION);
       setCameraInitialized(false);
       return;
@@ -426,19 +426,19 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       setCameraPosition(idealCameraPosition);
       setCameraInitialized(true);
     }
-  }, [assemblies.length, idealCameraPosition, cameraInitialized]);
+  }, [towers.length, idealCameraPosition, cameraInitialized]);
 
   const findPodSceneInfo = useCallback(
-    (podId: number): { origin: Vec3; assemblyX: number; assemblyZ: number } | null => {
+    (podId: number): { origin: Vec3; TowerX: number; TowerZ: number } | null => {
       for (const floor of floors) {
         for (const ring of floor.rings || []) {
           for (const pod of ring.pods || []) {
             if (pod.podId !== podId) continue;
-            const assemblyPos = assemblyPositions[floor.assemblyId] ?? { x: 0, z: 0 };
-            const assemblyX = assemblyPos.x;
-            const assemblyZ = assemblyPos.z;
-            const floorsInAssembly = floors.filter((f) => f.assemblyId === floor.assemblyId);
-            const sortedFloors = [...floorsInAssembly].sort((a, b) => a.orderIndex - b.orderIndex);
+            const TowerPos = TowerPositions[floor.TowerId] ?? { x: 0, z: 0 };
+            const TowerX = TowerPos.x;
+            const TowerZ = TowerPos.z;
+            const floorsInTower = floors.filter((f) => f.TowerId === floor.TowerId);
+            const sortedFloors = [...floorsInTower].sort((a, b) => a.orderIndex - b.orderIndex);
             const floorIndex = sortedFloors.findIndex((f) => f.floorId === floor.floorId);
             const safeFloorIndex = floorIndex >= 0 ? floorIndex : 0;
             const floorY = safeFloorIndex * FLOOR_SPACING;
@@ -447,35 +447,35 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             let x: number;
             let z: number;
             if (pod.slotIndex === -1) {
-              x = assemblyX;
-              z = assemblyZ;
+              x = TowerX;
+              z = TowerZ;
             } else {
               const angle = (2 * Math.PI * pod.slotIndex) / ring.slots;
-              x = assemblyX + radius * Math.cos(angle);
-              z = assemblyZ + radius * Math.sin(angle);
+              x = TowerX + radius * Math.cos(angle);
+              z = TowerZ + radius * Math.sin(angle);
             }
 
-            return { origin: [x, floorY + POD_HEIGHT / 2, z], assemblyX, assemblyZ };
+            return { origin: [x, floorY + POD_HEIGHT / 2, z], TowerX, TowerZ };
           }
         }
       }
       return null;
     },
-    [floors, assemblyPositions],
+    [floors, TowerPositions],
   );
 
   const layoutExtents = useMemo(() => {
-    if (assemblies.length === 0) {
+    if (towers.length === 0) {
       return { zOutside: 10, maxFloors: 1 };
     }
 
     let maxRadiusIndexPlusOne = 1;
     let maxFloors = 1;
 
-    for (const assembly of assemblies) {
-      const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
-      maxFloors = Math.max(maxFloors, assemblyFloors.length || 1);
-      const maxRadius = getAssemblyMaxRadius(assemblyFloors);
+    for (const Tower of towers) {
+      const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
+      maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
+      const maxRadius = getTowerMaxRadius(TowerFloors);
       maxRadiusIndexPlusOne = Math.max(maxRadiusIndexPlusOne, maxRadius);
     }
 
@@ -483,27 +483,27 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     const margin = 6;
     const zOutside = maxRingRadius + margin;
     return { zOutside, maxFloors };
-  }, [assemblies, floors, assemblyPositions]);
+  }, [towers, floors, TowerPositions]);
 
   const startWorkflow = useCallback(
     (podId: number) => {
       const info = findPodSceneInfo(podId);
       if (!info) return;
       const origin = info.origin;
-      const assemblyX = info.assemblyX;
-      const assemblyZ = info.assemblyZ;
+      const TowerX = info.TowerX;
+      const TowerZ = info.TowerZ;
 
       const { zOutside, maxFloors } = layoutExtents;
       const exitY = maxFloors * FLOOR_SPACING + POD_HEIGHT / 2;
       const belowY = -FLOOR_SPACING + POD_HEIGHT / 2;
 
-      // "radius = 0" means the ring center position for this assembly.
-      const centerOnLevel: Vec3 = [assemblyX, origin[1], assemblyZ];
-      const topAboveHighest: Vec3 = [assemblyX, exitY, assemblyZ];
-      const outsideAtTop: Vec3 = [assemblyX, exitY, assemblyZ + zOutside];
-      const outsideBelow: Vec3 = [assemblyX, belowY, assemblyZ + zOutside];
-      const centerBelow: Vec3 = [assemblyX, belowY, assemblyZ];
-      const centerBackAtStartLevel: Vec3 = [assemblyX, origin[1], assemblyZ];
+      // "radius = 0" means the ring center position for this Tower.
+      const centerOnLevel: Vec3 = [TowerX, origin[1], TowerZ];
+      const topAboveHighest: Vec3 = [TowerX, exitY, TowerZ];
+      const outsideAtTop: Vec3 = [TowerX, exitY, TowerZ + zOutside];
+      const outsideBelow: Vec3 = [TowerX, belowY, TowerZ + zOutside];
+      const centerBelow: Vec3 = [TowerX, belowY, TowerZ];
+      const centerBackAtStartLevel: Vec3 = [TowerX, origin[1], TowerZ];
 
       const speed = 6;
       const durationFor = (from: Vec3, to: Vec3) => {
@@ -752,14 +752,14 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
           <Bounds clip margin={1.5}>
             <group>
-              {assemblies.map((assembly) => {
-                const assemblyFloors = floors.filter((f) => f.assemblyId === assembly.assemblyId);
+              {towers.map((Tower) => {
+                const TowerFloors = floors.filter((f) => f.TowerId === Tower.TowerId);
                 return (
-                  <AssemblyMesh
-                    key={assembly.assemblyId}
-                    assembly={assembly}
-                    floors={assemblyFloors}
-                    position={assemblyPositions[assembly.assemblyId] || { x: 0, z: 0 }}
+                  <TowerMesh
+                    key={Tower.TowerId}
+                    Tower={Tower}
+                    floors={TowerFloors}
+                    position={TowerPositions[Tower.TowerId] || { x: 0, z: 0 }}
                     selectedPodId={selectedPodId}
                     onPodSelect={onPodSelect}
                     presencePodId={presencePodId}

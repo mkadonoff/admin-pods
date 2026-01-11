@@ -6,19 +6,19 @@ import { MyPresenceBar } from './components/MyPresenceBar';
 import { ContextPanel } from './components/ContextPanel';
 import { FloorManager } from './components/FloorManager';
 import { EntityLibrary } from './components/EntityLibrary';
-import { floorAPI, assemblyAPI, healthAPI, Assembly, Floor, ApiHealth } from './api';
+import { floorAPI, towerAPI, healthAPI, Tower, Floor, ApiHealth } from './api';
 
 const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
 
 function App() {
   const gitCommit = import.meta.env.VITE_GIT_COMMIT;
   const versionLabel = gitCommit ? gitCommit.slice(0, 7) : 'dev';
-  // Assembly state
-  const [assemblies, setAssemblies] = useState<Assembly[]>([]);
-  const [activeAssemblyId, setActiveAssemblyId] = useState<number | null>(null);
-  const [newAssemblyName, setNewAssemblyName] = useState('');
+  // Tower state
+  const [towers, settowers] = useState<Tower[]>([]);
+  const [activeTowerId, setActiveTowerId] = useState<number | null>(null);
+  const [newTowerName, setNewTowerName] = useState('');
 
-  // Floor state (all floors from all assemblies)
+  // Floor state (all floors from all towers)
   const [floors, setFloors] = useState<Floor[]>([]);
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const [selectedPodId, setSelectedPodId] = useState<number | null>(null);
@@ -34,26 +34,26 @@ function App() {
   const isDraggingRef = useRef(false);
   const centerContainerRef = useRef<HTMLDivElement>(null);
 
-  // Load assemblies
-  const refreshAssemblies = useCallback(async () => {
+  // Load towers
+  const refreshtowers = useCallback(async () => {
     try {
-      const response = await assemblyAPI.list();
-      setAssemblies(response.data);
+      const response = await towerAPI.list();
+      settowers(response.data);
       return response.data;
     } catch (error) {
-      console.error('Failed to load assemblies', error);
+      console.error('Failed to load towers', error);
       return [];
     }
   }, []);
 
-  // Load floors for all assemblies
-  const refreshFloors = useCallback(async (assemblyIds: number[]) => {
-    if (assemblyIds.length === 0) {
+  // Load floors for all towers
+  const refreshFloors = useCallback(async (TowerIds: number[]) => {
+    if (TowerIds.length === 0) {
       setFloors([]);
       return;
     }
     try {
-      const response = await floorAPI.list(assemblyIds);
+      const response = await floorAPI.list(TowerIds);
       setFloors(response.data);
     } catch (error) {
       console.error('Failed to load floors', error);
@@ -63,10 +63,10 @@ function App() {
   // Initial load
   useEffect(() => {
     (async () => {
-      const loadedAssemblies = await refreshAssemblies();
-      if (loadedAssemblies.length > 0) {
-        const ids = loadedAssemblies.map((a: Assembly) => a.assemblyId);
-        setActiveAssemblyId(ids[0]);
+      const loadedtowers = await refreshtowers();
+      if (loadedtowers.length > 0) {
+        const ids = loadedtowers.map((a: Tower) => a.TowerId);
+        setActiveTowerId(ids[0]);
         await refreshFloors(ids);
       }
     })();
@@ -117,64 +117,64 @@ function App() {
     };
   }, []);
 
-  // Reload floors when assemblies change
+  // Reload floors when towers change
   useEffect(() => {
-    if (assemblies.length > 0) {
-      const ids = assemblies.map((a) => a.assemblyId);
+    if (towers.length > 0) {
+      const ids = towers.map((a) => a.TowerId);
       refreshFloors(ids);
     }
-  }, [assemblies, refreshFloors]);
+  }, [towers, refreshFloors]);
 
-  // Create new assembly
-  const handleCreateAssembly = async () => {
-    const name = newAssemblyName.trim();
+  // Create new Tower
+  const handleCreateTower = async () => {
+    const name = newTowerName.trim();
     if (!name) {
-      alert('Please enter an assembly name');
+      alert('Please enter an Tower name');
       return;
     }
     try {
-      const response = await assemblyAPI.create(name);
-      setNewAssemblyName('');
-      await refreshAssemblies();
-      setActiveAssemblyId(response.data.assemblyId);
+      const response = await towerAPI.create(name);
+      setNewTowerName('');
+      await refreshtowers();
+      setActiveTowerId(response.data.TowerId);
     } catch (error: any) {
-      console.error('Failed to create assembly', error);
-      alert(error.response?.data?.error || 'Failed to create assembly');
+      console.error('Failed to create Tower', error);
+      alert(error.response?.data?.error || 'Failed to create Tower');
     }
   };
 
-  // Delete assembly
-  const handleDeleteAssembly = async (assemblyId: number) => {
-    const assembly = assemblies.find((a) => a.assemblyId === assemblyId);
-    if (!confirm(`Delete assembly "${assembly?.name}"? This will delete all floors and pods.`)) return;
+  // Delete Tower
+  const handleDeleteTower = async (TowerId: number) => {
+    const Tower = towers.find((a) => a.TowerId === TowerId);
+    if (!confirm(`Delete Tower "${Tower?.name}"? This will delete all floors and pods.`)) return;
     try {
-      await assemblyAPI.delete(assemblyId);
-      if (activeAssemblyId === assemblyId) {
-        setActiveAssemblyId(assemblies.find((a) => a.assemblyId !== assemblyId)?.assemblyId ?? null);
+      await towerAPI.delete(TowerId);
+      if (activeTowerId === TowerId) {
+        setActiveTowerId(towers.find((a) => a.TowerId !== TowerId)?.TowerId ?? null);
       }
-      await refreshAssemblies();
+      await refreshtowers();
     } catch (error) {
-      console.error('Failed to delete assembly', error);
-      alert('Failed to delete assembly');
+      console.error('Failed to delete Tower', error);
+      alert('Failed to delete Tower');
     }
   };
 
-  // Rename assembly
-  const handleRenameAssembly = async (assemblyId: number, newName: string) => {
+  // Rename Tower
+  const handleRenameTower = async (TowerId: number, newName: string) => {
     try {
-      await assemblyAPI.update(assemblyId, newName);
-      await refreshAssemblies();
+      await towerAPI.update(TowerId, newName);
+      await refreshtowers();
     } catch (error: any) {
-      console.error('Failed to rename assembly', error);
-      alert(error.response?.data?.error || 'Failed to rename assembly');
+      console.error('Failed to rename Tower', error);
+      alert(error.response?.data?.error || 'Failed to rename Tower');
     }
   };
 
   const notifyAssignmentsChanged = () => {
     setAssignmentsVersion((v) => v + 1);
     // Refresh floors to get updated assignment data
-    if (assemblies.length > 0) {
-      refreshFloors(assemblies.map((a) => a.assemblyId));
+    if (towers.length > 0) {
+      refreshFloors(towers.map((a) => a.TowerId));
     }
   };
 
@@ -183,10 +183,10 @@ function App() {
   };
 
   const handleFloorsChanged = () => {
-    if (assemblies.length > 0) {
-      refreshFloors(assemblies.map((a) => a.assemblyId));
+    if (towers.length > 0) {
+      refreshFloors(towers.map((a) => a.TowerId));
     }
-    refreshAssemblies(); // Update floor counts
+    refreshtowers(); // Update floor counts
   };
 
   const handlePodHighlight = (podId: number) => {
@@ -203,19 +203,19 @@ function App() {
     setProcessRequestNonce((n) => n + 1);
   }, []);
 
-  // Find assembly and floor for selected pod
+  // Find Tower and floor for selected pod
   const selectedPodInfo = useMemo(() => {
     if (!selectedPodId) {
-      return { assemblyName: undefined, floorName: undefined, podName: undefined };
+      return { TowerName: undefined, floorName: undefined, podName: undefined };
     }
 
     for (const floor of floors) {
       for (const ring of floor.rings || []) {
         for (const pod of ring.pods || []) {
           if (pod.podId === selectedPodId) {
-            const assembly = assemblies.find((a) => a.assemblyId === floor.assemblyId);
+            const Tower = towers.find((a) => a.TowerId === floor.TowerId);
             return {
-              assemblyName: assembly?.name,
+              TowerName: Tower?.name,
               floorName: floor.name,
               podName: pod.name || '',
             };
@@ -224,8 +224,8 @@ function App() {
       }
     }
 
-    return { assemblyName: undefined, floorName: undefined, podName: undefined };
-  }, [selectedPodId, floors, assemblies]);
+    return { TowerName: undefined, floorName: undefined, podName: undefined };
+  }, [selectedPodId, floors, towers]);
 
   const myPresenceInfo = useMemo(() => {
     if (!myPersonEntityId) {
@@ -332,21 +332,21 @@ function App() {
           </div>
         </div>
 
-        {/* Assembly controls */}
+        {/* Tower controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <input
             type="text"
-            placeholder="New assembly name"
-            value={newAssemblyName}
-            onChange={(e) => setNewAssemblyName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreateAssembly()}
+            placeholder="New Tower name"
+            value={newTowerName}
+            onChange={(e) => setNewTowerName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleCreateTower()}
             style={{ 
               padding: '6px 10px', 
               width: '180px',
             }}
           />
           <button 
-            onClick={handleCreateAssembly} 
+            onClick={handleCreateTower} 
             style={{ 
               padding: '6px 14px',
               backgroundColor: 'var(--accent)',
@@ -355,7 +355,7 @@ function App() {
               fontWeight: 600,
             }}
           >
-            + Assembly
+            + Tower
           </button>
         </div>
       </header>
@@ -382,14 +382,14 @@ function App() {
         >
           <FloorManager
             variant="sidebar"
-            assemblies={assemblies}
+            towers={towers}
             floors={floors}
-            activeAssemblyId={activeAssemblyId}
+            activeTowerId={activeTowerId}
             selectedFloorId={selectedFloorId}
-            onSelectAssembly={setActiveAssemblyId}
+            onSelectTower={setActiveTowerId}
             onSelectFloor={setSelectedFloorId}
-            onDeleteAssembly={handleDeleteAssembly}
-            onRenameAssembly={handleRenameAssembly}
+            onDeleteTower={handleDeleteTower}
+            onRenameTower={handleRenameTower}
             onFloorsChanged={handleFloorsChanged}
           />
         </div>
@@ -406,9 +406,9 @@ function App() {
             }}
           >
             <LayoutView
-              assemblies={assemblies}
+              towers={towers}
               floors={floors}
-              activeAssemblyId={activeAssemblyId}
+              activeTowerId={activeTowerId}
               selectedFloorId={selectedFloorId}
               selectedPodId={selectedPodId}
               onPodSelect={handlePodDetailsOpen}
@@ -462,7 +462,7 @@ function App() {
             }}
           >
             <ContextPanel
-              assemblies={assemblies}
+              towers={towers}
               floors={floors}
               selectedFloorId={selectedFloorId}
               selectedPodId={showPodDetails ? selectedPodId : null}

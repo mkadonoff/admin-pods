@@ -1,14 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { ringAPI, Assembly, Floor, Ring } from '../api';
+import { ringAPI, Tower, Floor, Ring } from '../api';
 import { PodDetailsPanel } from './PodDetailsPanel';
 
 interface ContextPanelProps {
   selectedPodId: number | null;
   selectedFloorId: number | null;
-  assemblies: Assembly[];
+  towers: Tower[];
   floors: Floor[];
   selectedPodInfo: {
-    assemblyName?: string;
+    TowerName?: string;
     floorName?: string;
     podName?: string;
   };
@@ -33,7 +33,7 @@ interface FloorContextContentProps {
 export const ContextPanel: React.FC<ContextPanelProps> = ({
   selectedPodId,
   selectedFloorId,
-  assemblies,
+  towers,
   floors,
   selectedPodInfo,
   onLayoutChanged,
@@ -49,16 +49,16 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
     [floors, selectedFloorId],
   );
 
-  const activeAssemblyName = useMemo(() => {
+  const activeTowerName = useMemo(() => {
     if (!selectedFloor) return undefined;
-    return assemblies.find((assembly) => assembly.assemblyId === selectedFloor.assemblyId)?.name;
-  }, [assemblies, selectedFloor]);
+    return towers.find((Tower) => Tower.TowerId === selectedFloor.TowerId)?.name;
+  }, [towers, selectedFloor]);
 
   const headerLine = selectedPodId
-    ? `Assembly: ${selectedPodInfo.assemblyName || '—'} — Floor: ${selectedPodInfo.floorName || '—'} — Pod: ${selectedPodInfo.podName || 'Untitled Pod'}`
+    ? `Tower: ${selectedPodInfo.TowerName || '—'} — Floor: ${selectedPodInfo.floorName || '—'} — Pod: ${selectedPodInfo.podName || 'Untitled Pod'}`
     : selectedFloor
-      ? `Assembly: ${activeAssemblyName || '—'} — Floor: ${selectedFloor.name}`
-      : 'Assemblies & Floors';
+      ? `Tower: ${activeTowerName || '—'} — Floor: ${selectedFloor.name}`
+      : 'towers & Floors';
 
   return (
     <section

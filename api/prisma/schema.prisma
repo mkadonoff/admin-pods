@@ -7,22 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Assembly {
-  assemblyId Int      @id @default(autoincrement())
-  name       String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  floors     Floor[]
+model Tower {
+  towerId   Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  floors    Floor[]
 
-  @@map("Assembly")
+  @@map("Tower")
 }
 
 model Floor {
   floorId         Int              @id @default(autoincrement())
   name            String
   orderIndex      Int              @default(0)
-  assemblyId      Int
-  assembly        Assembly         @relation(fields: [assemblyId], references: [assemblyId], onDelete: Cascade)
+  towerId         Int
+  tower           Tower            @relation(fields: [towerId], references: [towerId], onDelete: Cascade)
   rings           Ring[]
   pods            Pod[]
   layoutSnapshots LayoutSnapshot[]

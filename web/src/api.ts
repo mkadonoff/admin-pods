@@ -16,8 +16,8 @@ export interface ApiHealth {
 }
 
 // Types
-export interface Assembly {
-  assemblyId: number;
+export interface Tower {
+  towerId: number;
   name: string;
   createdAt: string;
   updatedAt: string;
@@ -28,8 +28,8 @@ export interface Floor {
   floorId: number;
   name: string;
   orderIndex: number;
-  assemblyId: number;
-  assembly?: { assemblyId: number; name: string };
+  towerId: number;
+  tower?: { towerId: number; name: string };
   rings?: Ring[];
 }
 
@@ -69,22 +69,22 @@ export interface PodAssignment {
   entity?: Entity;
 }
 
-// Assemblies
-export const assemblyAPI = {
-  list: () => API.get<Assembly[]>('/assemblies'),
-  get: (id: number) => API.get<Assembly & { floors: Floor[] }>(`/assemblies/${id}`),
-  create: (name: string) => API.post<Assembly>('/assemblies', { name }),
-  update: (id: number, name: string) => API.patch<Assembly>(`/assemblies/${id}`, { name }),
-  delete: (id: number) => API.delete(`/assemblies/${id}`),
+// Towers
+export const towerAPI = {
+  list: () => API.get<Tower[]>('/towers'),
+  get: (id: number) => API.get<Tower & { floors: Floor[] }>(`/towers/${id}`),
+  create: (name: string) => API.post<Tower>('/towers', { name }),
+  update: (id: number, name: string) => API.patch<Tower>(`/towers/${id}`, { name }),
+  delete: (id: number) => API.delete(`/towers/${id}`),
 };
 
 // Floors
 export const floorAPI = {
-  list: (assemblyIds?: number[]) => {
-    const params = assemblyIds?.length ? { assemblyIds: assemblyIds.join(',') } : {};
+  list: (towerIds?: number[]) => {
+    const params = towerIds?.length ? { towerIds: towerIds.join(',') } : {};
     return API.get<Floor[]>('/floors', { params });
   },
-  create: (data: { name: string; orderIndex?: number; assemblyId: number }) =>
+  create: (data: { name: string; orderIndex?: number; towerId: number }) =>
     API.post<Floor>('/floors', data),
   update: (id: number, data: Partial<{ name: string; orderIndex: number }>) =>
     API.patch<Floor>(`/floors/${id}`, data),

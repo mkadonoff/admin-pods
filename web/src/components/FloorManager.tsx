@@ -1,36 +1,36 @@
 import React, { useState } from 'react';
-import { floorAPI, Assembly, Floor } from '../api';
+import { floorAPI, Tower, Floor } from '../api';
 
 interface FloorManagerProps {
-  assemblies: Assembly[];
+  towers: Tower[];
   floors: Floor[];
-  activeAssemblyId: number | null;
+  activeTowerId: number | null;
   selectedFloorId: number | null;
-  onSelectAssembly: (id: number) => void;
+  onSelectTower: (id: number) => void;
   onSelectFloor: (id: number) => void;
-  onDeleteAssembly: (id: number) => void;
-  onRenameAssembly: (id: number, newName: string) => void;
+  onDeleteTower: (id: number) => void;
+  onRenameTower: (id: number, newName: string) => void;
   onFloorsChanged: () => void;
   variant?: 'sidebar' | 'panel';
 }
 
 export const FloorManager: React.FC<FloorManagerProps> = ({
-  assemblies,
+  towers,
   floors,
-  activeAssemblyId,
+  activeTowerId,
   selectedFloorId,
-  onSelectAssembly,
+  onSelectTower,
   onSelectFloor,
-  onDeleteAssembly,
-  onRenameAssembly,
+  onDeleteTower,
+  onRenameTower,
   onFloorsChanged,
   variant = 'sidebar',
 }) => {
   const [newFloorName, setNewFloorName] = useState('');
   const [editingFloorId, setEditingFloorId] = useState<number | null>(null);
   const [editFloorName, setEditFloorName] = useState('');
-  const [editingAssemblyId, setEditingAssemblyId] = useState<number | null>(null);
-  const [editAssemblyName, setEditAssemblyName] = useState('');
+  const [editingTowerId, setEditingTowerId] = useState<number | null>(null);
+  const [editTowerName, setEditTowerName] = useState('');
   const isPanelVariant = variant === 'panel';
   const containerStyle = {
     padding: '16px',
@@ -47,13 +47,13 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   };
 
   const handleAddFloor = async () => {
-    if (!newFloorName || !activeAssemblyId) return;
+    if (!newFloorName || !activeTowerId) return;
     try {
-      const assemblyFloors = floors.filter((f) => f.assemblyId === activeAssemblyId);
+      const TowerFloors = floors.filter((f) => f.TowerId === activeTowerId);
       await floorAPI.create({
         name: newFloorName,
-        orderIndex: assemblyFloors.length,
-        assemblyId: activeAssemblyId,
+        orderIndex: TowerFloors.length,
+        TowerId: activeTowerId,
       });
       setNewFloorName('');
       onFloorsChanged();
@@ -66,20 +66,20 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     const floor = floors.find((f) => f.floorId === floorId);
     if (!floor) return;
 
-    // Get all floors in the same assembly, sorted by orderIndex ascending (bottom to top)
-    const assemblyFloors = floors
-      .filter((f) => f.assemblyId === floor.assemblyId)
+    // Get all floors in the same Tower, sorted by orderIndex ascending (bottom to top)
+    const TowerFloors = floors
+      .filter((f) => f.TowerId === floor.TowerId)
       .sort((a, b) => a.orderIndex - b.orderIndex);
 
-    const currentIndex = assemblyFloors.findIndex((f) => f.floorId === floorId);
+    const currentIndex = TowerFloors.findIndex((f) => f.floorId === floorId);
     
     // Determine target index based on direction (up = higher index, higher orderIndex)
     const targetIndex = direction === 'up' ? currentIndex + 1 : currentIndex - 1;
     
     // Check bounds
-    if (targetIndex < 0 || targetIndex >= assemblyFloors.length) return;
+    if (targetIndex < 0 || targetIndex >= TowerFloors.length) return;
 
-    const targetFloor = assemblyFloors[targetIndex];
+    const targetFloor = TowerFloors[targetIndex];
 
     // Swap orderIndex values - wait for both to complete before refreshing
     try {
@@ -126,18 +126,18 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     }
   };
 
-  const handleEditAssembly = (assemblyId: number, currentName: string) => {
-    setEditingAssemblyId(assemblyId);
-    setEditAssemblyName(currentName);
+  const handleEditTower = (TowerId: number, currentName: string) => {
+    setEditingTowerId(TowerId);
+    setEditTowerName(currentName);
   };
 
-  const handleSaveAssemblyEdit = (assemblyId: number) => {
-    if (!editAssemblyName.trim()) {
-      alert('Please enter an assembly name');
+  const handleSaveTowerEdit = (TowerId: number) => {
+    if (!editTowerName.trim()) {
+      alert('Please enter an Tower name');
       return;
     }
-    onRenameAssembly(assemblyId, editAssemblyName.trim());
-    setEditingAssemblyId(null);
+    onRenameTower(TowerId, editTowerName.trim());
+    setEditingTowerId(null);
   };
 
   return (
@@ -151,22 +151,22 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
         marginBottom: '16px',
         paddingBottom: '8px',
         borderBottom: '1px solid var(--border)',
-      }}>Assemblies & Floors</h2>
+      }}>towers & Floors</h2>
 
-      {assemblies.length === 0 && (
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No assemblies. Create one to get started!</p>
+      {towers.length === 0 && (
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No towers. Create one to get started!</p>
       )}
 
-      {assemblies.map((assembly) => {
-        const assemblyFloors = floors
-          .filter((f) => f.assemblyId === assembly.assemblyId)
+      {towers.map((Tower) => {
+        const TowerFloors = floors
+          .filter((f) => f.TowerId === Tower.TowerId)
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .reverse();
-        const isActive = activeAssemblyId === assembly.assemblyId;
+        const isActive = activeTowerId === Tower.TowerId;
 
         return (
           <div
-            key={assembly.assemblyId}
+            key={Tower.TowerId}
             style={{
               marginBottom: '16px',
               padding: '12px',
@@ -176,41 +176,41 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
               boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
             }}
           >
-            {/* Assembly Header */}
+            {/* Tower Header */}
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
-              {editingAssemblyId === assembly.assemblyId ? (
+              {editingTowerId === Tower.TowerId ? (
                 <>
                   <input
                     type="text"
-                    value={editAssemblyName}
-                    onChange={(e) => setEditAssemblyName(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSaveAssemblyEdit(assembly.assemblyId)}
+                    value={editTowerName}
+                    onChange={(e) => setEditTowerName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSaveTowerEdit(Tower.TowerId)}
                     style={{ flex: 1, marginRight: '5px' }}
                     autoFocus
                   />
-                  <button onClick={() => handleSaveAssemblyEdit(assembly.assemblyId)}>✓</button>
-                  <button onClick={() => setEditingAssemblyId(null)}>✕</button>
+                  <button onClick={() => handleSaveTowerEdit(Tower.TowerId)}>✓</button>
+                  <button onClick={() => setEditingTowerId(null)}>✕</button>
                 </>
               ) : (
                 <>
                   <strong
-                    onClick={() => onSelectAssembly(assembly.assemblyId)}
+                    onClick={() => onSelectTower(Tower.TowerId)}
                     style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', fontSize: '12px' }}
                   >
-                    {assembly.name}
+                    {Tower.name}
                   </strong>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px', fontFamily: "'Consolas', monospace" }}>
-                    ({assemblyFloors.length} floors)
+                    ({TowerFloors.length} floors)
                   </span>
                   <button
-                    onClick={() => handleEditAssembly(assembly.assemblyId, assembly.name)}
+                    onClick={() => handleEditTower(Tower.TowerId, Tower.name)}
                     title="Rename"
                     style={{ padding: '4px 6px', fontSize: '12px' }}
                   >
                     ✏️
                   </button>
                   <button
-                    onClick={() => onDeleteAssembly(assembly.assemblyId)}
+                    onClick={() => onDeleteTower(Tower.TowerId)}
                     title="Delete"
                     style={{ color: 'var(--danger)', padding: '4px 6px', fontSize: '12px' }}
                   >
@@ -222,7 +222,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
             {/* Floors list */}
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {assemblyFloors.map((floor) => (
+              {TowerFloors.map((floor) => (
                 <li
                   key={floor.floorId}
                   style={{
@@ -277,7 +277,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
               ))}
             </ul>
 
-            {/* Add floor (only for active assembly) */}
+            {/* Add floor (only for active Tower) */}
             {isActive && (
               <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
                 <input
