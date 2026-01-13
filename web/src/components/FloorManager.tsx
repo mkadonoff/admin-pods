@@ -73,20 +73,26 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
     const currentIndex = TowerFloors.findIndex((f) => f.floorId === floorId);
     
-    // Determine target index based on direction (up = higher index, higher orderIndex)
-    const targetIndex = direction === 'up' ? currentIndex + 1 : currentIndex - 1;
+    // Display is reversed: highest orderIndex shown at top
+    // 'down' button in UI = move toward bottom = decrease position in sorted array
+    // 'up' button in UI = move toward top = increase position in sorted array  
+    const targetIndex = direction === 'down' ? currentIndex - 1 : currentIndex + 1;
     
     // Check bounds
     if (targetIndex < 0 || targetIndex >= TowerFloors.length) return;
 
-    const targetFloor = TowerFloors[targetIndex];
+    // Remove floor from current position and insert at target position
+    const reordered = [...TowerFloors];
+    const [movedFloor] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, movedFloor);
 
-    // Swap orderIndex values - wait for both to complete before refreshing
+    // Reassign sequential orderIndex values (0, 1, 2, ...) to all floors
     try {
-      await Promise.all([
-        floorAPI.update(floorId, { orderIndex: targetFloor.orderIndex }),
-        floorAPI.update(targetFloor.floorId, { orderIndex: floor.orderIndex })
-      ]);
+      await Promise.all(
+        reordered.map((f, index) => 
+          floorAPI.update(f.floorId, { orderIndex: index })
+        )
+      );
       onFloorsChanged();
     } catch (error) {
       console.error('Failed to reorder floor', error);
