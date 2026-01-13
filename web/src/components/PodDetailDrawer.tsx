@@ -78,7 +78,7 @@ export const PodDetailDrawer: React.FC<PodDetailDrawerProps> = ({
 
   const loadEntities = async () => {
     try {
-      const response = await entityAPI.list();
+      const response = await entityAPI.list(1); // TODO: Get digitalTwinId from context
       setEntities(response.data);
     } catch (error) {
       console.error('Failed to load entities', error);

@@ -9,7 +9,7 @@ async function backup() {
     console.log('Starting database backup...');
     
     const data = {
-      assemblies: await prisma.assembly.findMany(),
+      assemblies: await prisma.tower.findMany(),
       floors: await prisma.floor.findMany(),
       rings: await prisma.ring.findMany(),
       pods: await prisma.pod.findMany(),

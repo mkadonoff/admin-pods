@@ -466,7 +466,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     };
 
     // Use the underlying THREE.EventDispatcher API
-    const target = controls.target;
     controls.addEventListener('start', handleInteraction);
     controls.addEventListener('end', handleInteraction);
 
@@ -475,16 +474,20 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     const handleMouseDown = () => handleInteraction();
     
     const domElement = controls.domElement;
-    domElement.addEventListener('wheel', handleWheel, { passive: true });
-    domElement.addEventListener('mousedown', handleMouseDown);
-    domElement.addEventListener('touchstart', handleInteraction);
+    if (domElement) {
+      domElement.addEventListener('wheel', handleWheel, { passive: true });
+      domElement.addEventListener('mousedown', handleMouseDown);
+      domElement.addEventListener('touchstart', handleInteraction);
+    }
 
     return () => {
       controls.removeEventListener('start', handleInteraction);
       controls.removeEventListener('end', handleInteraction);
-      domElement.removeEventListener('wheel', handleWheel);
-      domElement.removeEventListener('mousedown', handleMouseDown);
-      domElement.removeEventListener('touchstart', handleInteraction);
+      if (domElement) {
+        domElement.removeEventListener('wheel', handleWheel);
+        domElement.removeEventListener('mousedown', handleMouseDown);
+        domElement.removeEventListener('touchstart', handleInteraction);
+      }
     };
   }, [navigationMode]);
 

@@ -7,7 +7,7 @@ export default function createAssemblyRoutes(prisma: PrismaClient) {
   // GET /assemblies - list all assemblies with floor count
   router.get('/', async (req: Request, res: Response) => {
     try {
-      const assemblies = await prisma.assembly.findMany({
+      const assemblies = await prisma.tower.findMany({
         orderBy: { name: 'asc' },
         include: {
           _count: { select: { floors: true } },
@@ -23,8 +23,8 @@ export default function createAssemblyRoutes(prisma: PrismaClient) {
   router.get('/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const assembly = await prisma.assembly.findUnique({
-        where: { assemblyId: parseInt(id) },
+      const assembly = await prisma.tower.findUnique({
+        where: { towerId: parseInt(id) },
         include: {
           floors: {
             orderBy: { orderIndex: 'asc' },
@@ -58,12 +58,15 @@ export default function createAssemblyRoutes(prisma: PrismaClient) {
   // POST /assemblies - create new assembly
   router.post('/', async (req: Request, res: Response) => {
     try {
-      const { name } = req.body;
+      const { name, digitalTwinId } = req.body;
       if (!name || typeof name !== 'string' || name.trim() === '') {
         return res.status(400).json({ error: 'Name is required' });
       }
-      const assembly = await prisma.assembly.create({
-        data: { name: name.trim() },
+      if (!digitalTwinId || typeof digitalTwinId !== 'number') {
+        return res.status(400).json({ error: 'digitalTwinId is required' });
+      }
+      const assembly = await prisma.tower.create({
+        data: { name: name.trim(), digitalTwinId },
       });
       res.status(201).json(assembly);
     } catch (error: any) {
@@ -79,8 +82,8 @@ export default function createAssemblyRoutes(prisma: PrismaClient) {
     try {
       const { id } = req.params;
       const { name } = req.body;
-      const assembly = await prisma.assembly.update({
-        where: { assemblyId: parseInt(id) },
+      const assembly = await prisma.tower.update({
+        where: { towerId: parseInt(id) },
         data: { name: name?.trim() },
       });
       res.json(assembly);
@@ -96,7 +99,7 @@ export default function createAssemblyRoutes(prisma: PrismaClient) {
   router.delete('/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      await prisma.assembly.delete({ where: { assemblyId: parseInt(id) } });
+      await prisma.tower.delete({ where: { towerId: parseInt(id) } });
       res.status(204).send();
     } catch (error) {
       res.status(400).json({ error: 'Failed to delete assembly' });
