@@ -61,6 +61,67 @@ function getTowerMaxRadius(floors: Floor[]): number {
   return maxRadius;
 }
 
+// Hexagonal Grid Component
+function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: number; color: string }) {
+  const hexCoords = useMemo(() => {
+    // Generate hex grid coordinates
+    const coords: Axial[] = [];
+    const rows = Math.ceil(size / (hexRadius * Math.sqrt(3)));
+    
+    for (let q = -rows; q <= rows; q++) {
+      for (let r = -rows; r <= rows; r++) {
+        const s = -q - r;
+        if (Math.abs(q) <= rows && Math.abs(r) <= rows && Math.abs(s) <= rows) {
+          coords.push({ q, r });
+        }
+      }
+    }
+    return coords;
+  }, [size, hexRadius]);
+
+  // Convert axial coords to world position (flat-top orientation for floor)
+  const hexToWorld = (axial: Axial): [number, number] => {
+    const x = hexRadius * (3/2 * axial.q);
+    const z = hexRadius * (Math.sqrt(3)/2 * axial.q + Math.sqrt(3) * axial.r);
+    return [x, z];
+  };
+
+  // Create hexagon outline geometry (flat on ground plane)
+  const hexOutline = useMemo(() => {
+    const points: [number, number, number][] = [];
+    for (let i = 0; i <= 6; i++) {
+      const angle = (Math.PI / 3) * i;
+      points.push([
+        hexRadius * Math.cos(angle),
+        0.01, // Slightly above ground to avoid z-fighting
+        hexRadius * Math.sin(angle)
+      ]);
+    }
+    return points;
+  }, [hexRadius]);
+
+  return (
+    <group>
+      {hexCoords.map((coord, idx) => {
+        const [x, z] = hexToWorld(coord);
+        return (
+          <lineSegments key={idx} position={[x, 0, z]}>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                count={hexOutline.length}
+                array={new Float32Array(hexOutline.flat())}
+                itemSize={3}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial color={color} opacity={0.8} transparent linewidth={2} />
+          </lineSegments>
+        );
+      })}
+    </group>
+  );
+}
+
 // 3D Pod component
 function PodMesh({
   position,
@@ -896,7 +957,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           )}
           <ambientLight intensity={0.7} />
           <directionalLight position={[10, 20, 10]} intensity={0.8} />
-          <gridHelper args={[100, 50, '#c0c8d0', '#d8e0e8']} />
+          <HexagonalGrid size={50} hexRadius={2} color="#d8e0e8" />
 
           <SceneControllers />
 
