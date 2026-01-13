@@ -738,7 +738,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onRequestProcessSelected]);
+  }, [onRequestProcessSelected, selectedPodId, previousCameraPosition, findPodSceneInfo, focusOnPosition, cameraPosition]);
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
 
@@ -758,8 +758,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
         const state = navStateRef.current;
         const stepDist = 1.25;
-        const stepAngle = Math.PI / 3;
-        const maxPitchSteps = 2;
+        const stepAngle = Math.PI / 24; // ~7.5 degrees per step (much finer control)
+        const maxPitchSteps = 12; // Allow wider pitch range with smaller steps
 
         if (event.key === '0') {
           event.preventDefault();
@@ -787,12 +787,12 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           case 'w':
           case 'W':
             event.preventDefault();
-            move(forward);
+            move([-forward[0], -forward[1], -forward[2]]);
             break;
           case 's':
           case 'S':
             event.preventDefault();
-            move([-forward[0], -forward[1], -forward[2]]);
+            move(forward);
             break;
           case 'a':
           case 'A':
@@ -848,11 +848,13 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
     useEffect(() => {
       if (!navigationMode) return;
+      // Sync navStateRef position with current camera position when entering navigation mode
+      navStateRef.current.position = [camera.position.x, camera.position.y, camera.position.z];
       gl.domElement.style.cursor = 'crosshair';
       return () => {
         gl.domElement.style.cursor = 'default';
       };
-    }, [navigationMode, gl.domElement]);
+    }, [navigationMode, gl.domElement, camera]);
 
     useFrame((_, delta) => {
       // Camera animation for smooth focus transitions
@@ -910,7 +912,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
       // Navigation camera tick
       if (navigationMode) {
-        const stepAngle = Math.PI / 3;
+        const stepAngle = Math.PI / 24; // ~7.5 degrees per step
         const yaw = navStateRef.current.yawStep * stepAngle;
         const pitch = navStateRef.current.pitchStep * stepAngle;
         camera.position.set(...navStateRef.current.position);
