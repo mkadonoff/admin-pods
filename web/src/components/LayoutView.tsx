@@ -434,8 +434,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     duration: number;
   } | null>(null);
   const [previousCameraPosition, setPreviousCameraPosition] = useState<Vec3 | null>(null);
-  const [autoRotateEnabled, setAutoRotateEnabled] = useState(false);
-  const lastInteractionTimeRef = useRef<number>(Date.now());
 
   const navStateRef = useRef({
     position: INITIAL_CAMERA_POSITION as Vec3,
@@ -444,52 +442,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   });
 
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
-
-  // Auto-rotate delay: enable after 30 seconds of inactivity
-  useEffect(() => {
-    const checkIdleTime = setInterval(() => {
-      const idleTime = Date.now() - lastInteractionTimeRef.current;
-      setAutoRotateEnabled(idleTime > 30000); // 30 seconds
-    }, 1000);
-
-    return () => clearInterval(checkIdleTime);
-  }, []);
-
-  // Reset auto-rotate timer on user interaction
-  useEffect(() => {
-    const controls = orbitControlsRef.current;
-    if (!controls) return;
-
-    const handleInteraction = () => {
-      lastInteractionTimeRef.current = Date.now();
-      setAutoRotateEnabled(false);
-    };
-
-    // Use the underlying THREE.EventDispatcher API
-    controls.addEventListener('start', handleInteraction);
-    controls.addEventListener('end', handleInteraction);
-
-    // Also reset on manual camera changes (wheel, drag, etc)
-    const handleWheel = () => handleInteraction();
-    const handleMouseDown = () => handleInteraction();
-    
-    const domElement = controls.domElement;
-    if (domElement) {
-      domElement.addEventListener('wheel', handleWheel, { passive: true });
-      domElement.addEventListener('mousedown', handleMouseDown);
-      domElement.addEventListener('touchstart', handleInteraction);
-    }
-
-    return () => {
-      controls.removeEventListener('start', handleInteraction);
-      controls.removeEventListener('end', handleInteraction);
-      if (domElement) {
-        domElement.removeEventListener('wheel', handleWheel);
-        domElement.removeEventListener('mousedown', handleMouseDown);
-        domElement.removeEventListener('touchstart', handleInteraction);
-      }
-    };
-  }, [navigationMode]);
 
   // Place towers in a hexagonal (honeycomb) grid instead of a single line.
   const TowerPositions = useMemo(() => {
@@ -955,8 +907,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               minPolarAngle={0}
               maxPolarAngle={Math.PI / 2}
               enableDamping
-              dampingFactor={0.05}
-              autoRotate={autoRotateEnabled}
+              dampingFactor={0.15}
+              autoRotate={false}
               autoRotateSpeed={0.5}
             />
           )}
