@@ -415,7 +415,7 @@ function FloorMesh({
     <group>
       {/* Floor label with occupancy metrics */}
       <Text
-        position={[TowerX + floorRadius + 0.5, floorY, TowerZ]}
+        position={[TowerX + floorRadius + 0.5, floorY + 0.7, TowerZ]}
         fontSize={0.6}
         color="#0078d4"
         anchorX="left"
@@ -1691,9 +1691,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                     dimPodId={workflowDimPodId}
                     onPodDoubleClick={(podId) => {
                       const info = findPodSceneInfo(podId);
-                      if (info) focusOnPosition(info.origin);
+                      if (info) {
+                        focusOnPosition(info.origin);
+                      }
                     }}
-                    hidePresencePod={podNavState.active}
                     showMetadata={showMetadataBadges}
                   />
                 );
@@ -1701,134 +1702,58 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             </group>
           </Bounds>
         </Canvas>
-
-        {/* Legend */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: 'rgba(255,255,255,0.95)',
-            padding: '6px 12px',
-            fontSize: '10px',
-            borderTop: '1px solid var(--border)',
-            color: 'var(--text)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#0078d4', borderRadius: '2px' }} />
-              Empty
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#2d8632', borderRadius: '2px' }} />
-              Assigned
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#ffb900', borderRadius: '2px' }} />
-              Selected
-            </span>
-          </span>
-          <span style={{ color: 'var(--text-muted)' }}>
-            <strong>Process:</strong> P · <strong>Focus:</strong> F or double-click · Back: B · <strong>Nav:</strong> N (set presence first)
-          </span>
+      </div>
+      {/* Settings panel - always visible on the side */}
+      {showSettings && (
+        <div style={{ 
+          width: 400, 
+          padding: 20, 
+          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+          borderLeft: '1px solid #d1d1d1',
+          height: '100%',
+          boxShadow: '2px 0 5px rgba(0, 0, 0, 0.1)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+        }}>
+          <h2 style={{ fontSize: 18, margin: 0, color: '#0078d4' }}>Layout Settings</h2>
+          <label style={{ fontSize: 14, color: '#333' }}>
+            <input 
+              type="checkbox" 
+              checked={settings.autoRotate} 
+              onChange={(e) => setSettings(s => ({ ...s, autoRotate: e.target.checked }))}
+              style={{ marginRight: 10 }}
+            />
+            Auto Rotate
+          </label>
+          <label style={{ fontSize: 14, color: '#333' }}>
+            <input 
+              type="checkbox" 
+              checked={settings.showFloorGrid} 
+              onChange={(e) => setSettings(s => ({ ...s, showFloorGrid: e.target.checked }))}
+              style={{ marginRight: 10 }}
+            />
+            Show Floor Grid
+          </label>
+          <div style={{ flex: 1 }} />
           <button
-            onClick={() => setShowSettings(true)}
+            onClick={() => setShowSettings(false)}
             style={{
-              marginLeft: 'auto',
-              padding: '4px 12px',
-              fontSize: '10px',
-              background: '#0078d4',
+              padding: '10px 15px',
+              backgroundColor: '#0078d4',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '4px',
+              borderRadius: 4,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
+              fontSize: 16,
+              fontWeight: 'bold',
+              transition: 'background-color 0.3s',
             }}
           >
-            ⚙ Settings
+            Close Settings
           </button>
         </div>
-
-        {/* Settings Dialog */}
-        {showSettings && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(0,0,0,0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-            onClick={() => setShowSettings(false)}
-          >
-            <div
-              style={{
-                background: '#ffffff',
-                borderRadius: '8px',
-                padding: '24px',
-                minWidth: '300px',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ margin: '0 0 16px 0', color: '#0078d4', fontSize: '16px' }}>
-                Display Settings
-              </h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.autoRotate}
-                    onChange={(e) => setSettings(s => ({ ...s, autoRotate: e.target.checked }))}
-                    style={{ width: '18px', height: '18px', accentColor: '#0078d4' }}
-                  />
-                  <span style={{ fontSize: '14px' }}>Auto-rotate camera</span>
-                </label>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={settings.showFloorGrid}
-                    onChange={(e) => setSettings(s => ({ ...s, showFloorGrid: e.target.checked }))}
-                    style={{ width: '18px', height: '18px', accentColor: '#0078d4' }}
-                  />
-                  <span style={{ fontSize: '14px' }}>Show floor grid</span>
-                </label>
-              </div>
-              
-              <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowSettings(false)}
-                  style={{
-                    padding: '8px 20px',
-                    fontSize: '14px',
-                    background: '#0078d4',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>  );
-};
+      )}
+    </div>
+  );
+}
