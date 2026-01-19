@@ -23,6 +23,7 @@ interface PodDetailsPanelProps {
   podName?: string;
   onPodUpdated?: () => void;
   onProcessPod?: (podId: number) => void;
+  entityRefreshKey?: number;
 }
 
 export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
@@ -32,6 +33,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
   podName,
   onPodUpdated,
   onProcessPod,
+  entityRefreshKey,
 }) => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [allAssignments, setAllAssignments] = useState<Assignment[]>([]);
@@ -47,7 +49,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
       loadAllAssignments();
       loadEntities();
     }
-  }, [podId, digitalTwinId]);
+  }, [podId, digitalTwinId, entityRefreshKey]);
 
   useEffect(() => {
     if (podId) {

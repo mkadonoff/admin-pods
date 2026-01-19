@@ -270,6 +270,32 @@ function App() {
     return { podId: null as number | null, podName: undefined as string | undefined };
   }, [myPersonEntityId, floors]);
 
+  // Compute virtual camera navigation location
+  const navLocation = useMemo(() => {
+    if (!podNavState?.active) return null;
+    
+    const onRoad = podNavState.currentRoad !== null;
+    if (onRoad) {
+      return { active: true, onRoad: true };
+    }
+    
+    const towerId = podNavState.inTowerId;
+    if (towerId === null) {
+      return { active: true };
+    }
+    
+    const tower = towers.find(t => t.towerId === towerId);
+    const towerName = tower?.name || `Tower ${towerId}`;
+    
+    // Find floor by index
+    const towerFloors = floors.filter(f => f.towerId === towerId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+    const floor = towerFloors[podNavState.currentFloor];
+    const floorName = floor?.name || `Floor ${podNavState.currentFloor + 1}`;
+    
+    return { active: true, towerName, floorName };
+  }, [podNavState, towers, floors]);
+
   const apiHealthy = healthStatus?.status === 'ok' && !healthFailed;
   const healthBadgeText = healthFailed
     ? 'API Unreachable'
@@ -396,6 +422,7 @@ function App() {
         onSelectEntity={setMyPersonEntityId}
         podName={myPresenceInfo.podName}
         refreshKey={entityVersion}
+        navLocation={navLocation}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
@@ -527,6 +554,7 @@ function App() {
                   onPodUpdated={handleFloorsChanged}
                   onClearPodSelection={() => { setSelectedPodId(null); setShowPodDetails(false); }}
                   onProcessPod={handleProcessPod}
+                  entityRefreshKey={entityVersion}
                 />
               </div>
             </>

@@ -77,12 +77,55 @@ export default function createRingRoutes(prisma: PrismaClient) {
   router.patch('/rings/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name, radiusIndex } = req.body;
+      const { name, radiusIndex, slots } = req.body;
+      const ringId = parseInt(id);
+      
+      // Get current ring with pods
+      const currentRing = await prisma.ring.findUnique({
+        where: { ringId },
+        include: { pods: true },
+      });
+      
+      if (!currentRing) {
+        return res.status(404).json({ error: 'Ring not found' });
+      }
+      
+      // Handle slot count change
+      if (slots !== undefined && slots !== currentRing.slots && currentRing.radiusIndex !== 0) {
+        const currentSlots = currentRing.slots;
+        const newSlots = slots;
+        
+        if (newSlots < currentSlots) {
+          // Remove pods with slotIndex >= newSlots
+          await prisma.pod.deleteMany({
+            where: {
+              ringId,
+              slotIndex: { gte: newSlots },
+            },
+          });
+        } else if (newSlots > currentSlots) {
+          // Add pods for new slots
+          const podsData = [];
+          for (let idx = currentSlots; idx < newSlots; idx++) {
+            podsData.push({
+              floorId: currentRing.floorId,
+              ringId,
+              slotIndex: idx,
+              name: `${currentRing.name} Pod ${idx}`,
+              podType: 'standard',
+            });
+          }
+          await prisma.pod.createMany({ data: podsData });
+        }
+      }
+      
       const data: any = {};
       if (name !== undefined) data.name = name;
       if (radiusIndex !== undefined) data.radiusIndex = radiusIndex;
+      if (slots !== undefined) data.slots = slots;
+      
       const ring = await prisma.ring.update({
-        where: { ringId: parseInt(id) },
+        where: { ringId },
         data,
       });
       res.json(ring);

@@ -124,7 +124,7 @@ export const ringAPI = {
   listByFloor: (floorId: number) => API.get<Ring[]>(`/floors/${floorId}/rings`),
   create: (floorId: number, data: { name: string; radiusIndex: number; slots: number }) =>
     API.post<Ring>(`/floors/${floorId}/rings`, data),
-  update: (id: number, data: Partial<{ name: string; radiusIndex: number }>) => API.patch<Ring>(`/rings/${id}`, data),
+  update: (id: number, data: Partial<{ name: string; radiusIndex: number; slots: number }>) => API.patch<Ring>(`/rings/${id}`, data),
   delete: (id: number) => API.delete(`/rings/${id}`),
 };
 

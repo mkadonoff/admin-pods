@@ -20,6 +20,7 @@ interface ContextPanelProps {
   onPodUpdated: () => void;
   onClearPodSelection: () => void;
   onProcessPod: (podId: number) => void;
+  entityRefreshKey?: number;
 }
 
 interface FloorContextContentProps {
@@ -45,6 +46,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
   onPodUpdated,
   onClearPodSelection,
   onProcessPod,
+  entityRefreshKey,
 }) => {
   const selectedFloor = useMemo(
     () => floors.find((floor) => floor.floorId === selectedFloorId) || null,
@@ -135,6 +137,7 @@ export const ContextPanel: React.FC<ContextPanelProps> = ({
             onAssignmentsChanged={onAssignmentsChanged}
             onPodUpdated={onPodUpdated}
             onProcessPod={onProcessPod}
+            entityRefreshKey={entityRefreshKey}
           />
         ) : (
           <FloorContextContent
@@ -165,6 +168,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
   const [editingRingId, setEditingRingId] = useState<number | null>(null);
   const [editRingName, setEditRingName] = useState('');
   const [editRingRadius, setEditRingRadius] = useState(0);
+  const [editRingSlots, setEditRingSlots] = useState(1);
 
   const selectedFloor = useMemo(
     () => floors.find((floor) => floor.floorId === selectedFloorId) || null,
@@ -196,6 +200,7 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
     setEditingRingId(ring.ringId);
     setEditRingName(ring.name);
     setEditRingRadius(ring.radiusIndex);
+    setEditRingSlots(ring.slots);
   };
 
   const handleSaveRingEdit = async () => {
@@ -207,10 +212,12 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
       await ringAPI.update(editingRingId, {
         name: editRingName.trim(),
         radiusIndex: editRingRadius,
+        slots: editRingSlots,
       });
       setEditingRingId(null);
       setEditRingName('');
       setEditRingRadius(0);
+      setEditRingSlots(1);
       onLayoutChanged();
     } catch (error: any) {
       console.error('Failed to update ring:', error);
@@ -280,9 +287,18 @@ const FloorContextContent: React.FC<FloorContextContentProps> = ({
                             style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
                           />
                         </label>
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: "'Consolas', monospace" }}>
-                          {ring.slots} slots
-                        </span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+                          Slots:
+                          <input
+                            type="number"
+                            min="1"
+                            value={editRingSlots}
+                            onChange={(event) => setEditRingSlots(Math.max(1, parseInt(event.target.value, 10) || 1))}
+                            style={{ width: '50px', padding: '4px 5px', fontSize: '11px' }}
+                            disabled={editRingRadius === 0}
+                            title={editRingRadius === 0 ? 'Center ring has only one pod' : 'Number of pods in this ring'}
+                          />
+                        </label>
                         <button onClick={handleSaveRingEdit} style={{ padding: '3px 6px', fontSize: '11px' }}>
                           ✓
                         </button>

@@ -7,6 +7,13 @@ interface MyPresenceBarProps {
   onSelectEntity: (entityId: number | null) => void;
   podName?: string;
   refreshKey?: number;
+  /** Virtual camera location when pod navigation is active */
+  navLocation?: {
+    active: boolean;
+    towerName?: string;
+    floorName?: string;
+    onRoad?: boolean;
+  } | null;
 }
 
 export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
@@ -15,6 +22,7 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
   onSelectEntity,
   podName,
   refreshKey,
+  navLocation,
 }) => {
   const [people, setPeople] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +74,17 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
       ? `You are in: ${podName}`
       : 'No pod assignment found for this profile.';
 
+  // Virtual camera location text
+  const navLocationText = navLocation?.active
+    ? navLocation.onRoad
+      ? 'On road between towers'
+      : navLocation.towerName && navLocation.floorName
+        ? `${navLocation.towerName} · ${navLocation.floorName}`
+        : navLocation.towerName
+          ? navLocation.towerName
+          : 'Navigating...'
+    : null;
+
   return (
     <div
       style={{
@@ -86,6 +105,19 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
         <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600 }}>
           {presenceText}
         </div>
+        {navLocationText && (
+          <div style={{ 
+            fontSize: '12px', 
+            color: 'var(--accent)', 
+            marginTop: '2px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <span style={{ fontSize: '10px' }}>🚀</span>
+            <span>Virtual: {navLocationText}</span>
+          </div>
+        )}
         {error && (
           <div style={{ fontSize: '11px', color: 'var(--danger)', marginTop: '4px' }}>
             {error}

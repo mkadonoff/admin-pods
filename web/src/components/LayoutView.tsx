@@ -13,8 +13,9 @@ import {
   NavAction,
   NAV_KEY_BINDINGS,
   parabolicLerp,
+  TowerBoundary,
 } from '../navigation';
-import { useRoadNetwork, findClosestRoad, findTowerAtPosition, getRoadPosition, getConnectedRoads } from '../navigation';
+import { useRoadNetwork, findClosestRoad, getRoadPosition, getConnectedRoads } from '../navigation';
 import { RoadNetwork } from '../navigation';
 
 const POD_RADIUS = 0.75;
@@ -219,6 +220,7 @@ function RingMesh({
   presencePodId,
   dimPodId,
   onPodDoubleClick,
+  hidePresencePod = false,
 }: {
   ring: Ring;
   floorY: number;
@@ -229,6 +231,7 @@ function RingMesh({
   presencePodId?: number | null;
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
+  hidePresencePod?: boolean;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -236,6 +239,10 @@ function RingMesh({
   return (
     <group>
       {pods.map((pod) => {
+        // Hide presence pod when navigating (it will be rendered at nav position)
+        if (hidePresencePod && pod.podId === presencePodId) {
+          return null;
+        }
         let x: number, z: number;
         if (pod.slotIndex === -1) {
           // Center pod
@@ -276,6 +283,7 @@ function FloorMesh({
   presencePodId,
   dimPodId,
   onPodDoubleClick,
+  hidePresencePod = false,
 }: {
   floor: Floor;
   floorIndex: number;
@@ -286,6 +294,7 @@ function FloorMesh({
   presencePodId?: number | null;
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
+  hidePresencePod?: boolean;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
@@ -335,6 +344,7 @@ function FloorMesh({
           presencePodId={presencePodId}
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
+          hidePresencePod={hidePresencePod}
         />
       ))}
     </group>
@@ -351,6 +361,7 @@ function TowerMesh({
   presencePodId,
   dimPodId,
   onPodDoubleClick,
+  hidePresencePod = false,
 }: {
   Tower: Tower;
   floors: Floor[];
@@ -360,6 +371,7 @@ function TowerMesh({
   presencePodId?: number | null;
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
+  hidePresencePod?: boolean;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
   const labelY = sortedFloors.length * FLOOR_SPACING + 1;
@@ -389,6 +401,7 @@ function TowerMesh({
           presencePodId={presencePodId}
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
+          hidePresencePod={hidePresencePod}
         />
       ))}
     </group>
@@ -516,7 +529,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   podNavStateRef.current = podNavState;
 
   // Get presence pod position for starting navigation
-  const presencePodPosition = useMemo<Vec3 | null>(() => {
+  const presencePodInfo = useMemo<{ position: Vec3; towerId: number; floorIndex: number } | null>(() => {
     if (!presencePodId) return null;
     for (const floor of floors) {
       for (const ring of floor.rings || []) {
@@ -538,13 +551,20 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               x = towerPos.x + radius * Math.cos(angle);
               z = towerPos.z + radius * Math.sin(angle);
             }
-            return [x, floorY + POD_HEIGHT / 2, z];
+            return {
+              position: [x, floorY + POD_HEIGHT / 2, z] as Vec3,
+              towerId: floor.towerId,
+              floorIndex: floorIndex >= 0 ? floorIndex : 0,
+            };
           }
         }
       }
     }
     return null;
   }, [presencePodId, floors, TowerPositions]);
+
+  // Backwards-compatible alias
+  const presencePodPosition = presencePodInfo?.position ?? null;
 
   // Camera position based on towers
   const idealCameraPosition = useMemo<[number, number, number]>(() => {
@@ -733,15 +753,17 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           // Exit pod navigation
           setPodNavState(s => ({ ...s, active: false }));
           setNavigationMode(false);
-        } else if (presencePodPosition) {
+        } else if (presencePodInfo) {
           // Enter pod navigation from presence pod
-          const closestRoad = findClosestRoad(presencePodPosition as NavVec3, roads);
+          // Start inside the tower at the presence pod's floor
           setPodNavState({
             ...DEFAULT_NAVIGATION_STATE,
             active: true,
-            position: presencePodPosition as NavVec3,
-            currentRoad: closestRoad?.road || null,
-            roadProgress: closestRoad?.progress || 0,
+            position: presencePodInfo.position as NavVec3,
+            inTowerId: presencePodInfo.towerId,
+            currentFloor: presencePodInfo.floorIndex,
+            currentRoad: null,
+            roadProgress: 0,
           });
           setNavigationMode(true);
         }
@@ -882,7 +904,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         setPodNavState(s => ({ ...s, cameraSlot: 0, cameraHeight: 2, cameraPan: 0, cameraTilt: 90 }));
         break;
     }
-  }, [presencePodPosition, roads, boundaries]);
+  }, [presencePodInfo, roads, boundaries]);
 
   // Notify parent when navigation state changes (for HUD rendering in parent)
   useEffect(() => {
@@ -1222,14 +1244,26 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           const newPos = getRoadPosition(state.currentRoad, newProgress);
           const updatedPos: NavVec3 = [newPos[0], POD_HEIGHT / 2, newPos[2]];
           
-          // Check if entering a tower boundary
-          const tower = findTowerAtPosition(updatedPos, boundaries);
-          if (tower) {
+          // Check if entering a tower boundary - only at road endpoints
+          // This prevents re-entering the tower we just left
+          const nearStart = newProgress <= 0.1;
+          const nearEnd = newProgress >= 0.9;
+          const movingToStart = !movingForward && nearStart;
+          const movingToEnd = movingForward && nearEnd;
+          
+          let enteredTower: TowerBoundary | null = null;
+          if (movingToStart) {
+            enteredTower = boundaries.find(b => b.towerId === state.currentRoad!.fromTowerId) || null;
+          } else if (movingToEnd) {
+            enteredTower = boundaries.find(b => b.towerId === state.currentRoad!.toTowerId) || null;
+          }
+          
+          if (enteredTower) {
             setPodNavState(s => ({
               ...s,
               position: updatedPos,
               roadProgress: newProgress,
-              inTowerId: tower.towerId,
+              inTowerId: enteredTower!.towerId,
               currentFloor: 0,
               speed: 0,
               currentRoad: null,
@@ -1418,6 +1452,17 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             onClick={() => {}}
           />
         )}
+        {/* Player pod during pod navigation - rendered at navigation position */}
+        {podNavState.active && (
+          <PodMesh
+            position={podNavState.position as Vec3}
+            isSelected={false}
+            hasAssignment={true}
+            onClick={() => {}}
+            isPresencePod={true}
+            opacity={1}
+          />
+        )}
       </>
     );
   };
@@ -1472,6 +1517,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                       const info = findPodSceneInfo(podId);
                       if (info) focusOnPosition(info.origin);
                     }}
+                    hidePresencePod={podNavState.active}
                   />
                 );
               })}
@@ -1512,7 +1558,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             </span>
           </span>
           <span style={{ color: 'var(--text-muted)' }}>
-            <strong>Nav:</strong> N toggle, Esc exit · Move: W/S A/D R/F · Look: Q/E arrows · Reset: 0 · <strong>Process:</strong> P · <strong>Focus:</strong> F or double-click · Back: B
+            <strong>Process:</strong> P · <strong>Focus:</strong> F or double-click · Back: B · <strong>Nav:</strong> N (set presence first)
           </span>
         </div>
       </div>
