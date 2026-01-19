@@ -157,7 +157,7 @@ export const PodNavigationHUD: React.FC<PodNavigationHUDProps> = ({ state, onAct
               }}
             />
           </div>
-          <div style={styles.label}>{state.cameraTilt - 90}°</div>
+          <div style={styles.label}>{Math.round(state.cameraTilt - 90)}°</div>
         </div>
       </div>
 
