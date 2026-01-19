@@ -75,8 +75,20 @@ function getTowerMaxRadius(floors: Floor[]): number {
   return maxRadius;
 }
 
-// Hexagonal Grid Component
-function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: number; color: string }) {
+// Hexagonal Grid Component with CPU-based fade under platforms and dashed lines
+function HexagonalGrid({ 
+  size, 
+  hexRadius, 
+  color, 
+  towerPositions,
+  floors,
+}: { 
+  size: number; 
+  hexRadius: number; 
+  color: string;
+  towerPositions: Record<number, TowerPosition>;
+  floors: Floor[];
+}) {
   const hexCoords = useMemo(() => {
     // Generate hex grid coordinates
     const coords: Axial[] = [];
@@ -100,6 +112,18 @@ function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: nu
     return [x, z];
   };
 
+  // Calculate platform radii for fade logic
+  const platformRadii = useMemo(() => {
+    const radii: Array<{ x: number; z: number; radius: number }> = [];
+    Object.entries(towerPositions).forEach(([towerIdStr, pos]) => {
+      const towerId = parseInt(towerIdStr);
+      const towerFloors = floors.filter(f => f.towerId === towerId);
+      const radius = getTowerMaxRadius(towerFloors) * FLOOR_RADIUS_SCALE;
+      radii.push({ x: pos.x, z: pos.z, radius });
+    });
+    return radii;
+  }, [towerPositions, floors]);
+
   // Create hexagon outline geometry (flat on ground plane)
   const hexOutline = useMemo(() => {
     const points: [number, number, number][] = [];
@@ -118,6 +142,31 @@ function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: nu
     <group>
       {hexCoords.map((coord, idx) => {
         const [x, z] = hexToWorld(coord);
+        
+        // CPU-based fade: check distance to all platforms
+        let opacity = 0.4; // Reduced base opacity for subtlety
+        let isMajorGrid = false;
+        
+        // Every 5th hex line is a major grid line
+        if (coord.q % 5 === 0 || coord.r % 5 === 0) {
+          opacity = 0.6;
+          isMajorGrid = true;
+        }
+        
+        // Fade under platforms
+        for (const platform of platformRadii) {
+          const dx = x - platform.x;
+          const dz = z - platform.z;
+          const dist = Math.sqrt(dx * dx + dz * dz);
+          if (dist < platform.radius) {
+            opacity = 0; // Completely fade under platforms
+            break;
+          }
+        }
+        
+        // Skip rendering if fully transparent
+        if (opacity === 0) return null;
+        
         return (
           <lineSegments key={idx} position={[x, 0, z]}>
             <bufferGeometry>
@@ -128,7 +177,12 @@ function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: nu
                 itemSize={3}
               />
             </bufferGeometry>
-            <lineBasicMaterial color={color} opacity={0.8} transparent linewidth={2} />
+            <lineBasicMaterial 
+              color={color} 
+              opacity={opacity} 
+              transparent 
+              linewidth={isMajorGrid ? 1.5 : 1}
+            />
           </lineSegments>
         );
       })}
@@ -136,7 +190,7 @@ function HexagonalGrid({ size, hexRadius, color }: { size: number; hexRadius: nu
   );
 }
 
-// 3D Pod component
+// 3D Pod component with corporate materials
 function PodMesh({
   position,
   isSelected,
@@ -145,6 +199,8 @@ function PodMesh({
   onDoubleClick,
   isPresencePod = false,
   opacity = 1,
+  pod,
+  showMetadata,
 }: {
   position: [number, number, number];
   isSelected: boolean;
@@ -153,38 +209,82 @@ function PodMesh({
   onDoubleClick?: () => void;
   isPresencePod?: boolean;
   opacity?: number;
+  pod?: any;
+  showMetadata?: boolean;
 }) {
+  // Corporate color palette with softer tones
   const podColor = isPresencePod
-    ? '#c239b3'
+    ? '#6264a7' // Professional Teams purple instead of magenta
     : isSelected
       ? '#ffb900'
       : hasAssignment
-        ? '#107c10'
+        ? '#2d8632' // Softer green for assigned pods
         : '#0078d4';
+  
   const windowColor = '#ffffff';
   const windowCount = 6;
   const windowWidth = POD_RADIUS * 0.55;
   const windowHeight = POD_HEIGHT * 0.65;
-  const windowOffset = POD_RADIUS * 0.8 - 0.02; // keeps windows slightly inset to avoid z-fighting
+  const windowOffset = POD_RADIUS * 0.8 - 0.02;
+
+  // Calculate metadata for badge
+  const podId = pod?.podId || 0;
+  const assignmentCount = pod?.assignments?.length || 0;
+  const maxCapacity = 5; // Typical pod capacity
+  const teamName = pod?.assignments?.[0]?.entity?.name?.split(' ')[0] || '';
 
   return (
     <group position={position} onClick={onClick} onDoubleClick={onDoubleClick}>
-      <mesh>
+      <mesh castShadow receiveShadow>
         <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
-        <meshStandardMaterial color={podColor} transparent={opacity < 1} opacity={opacity} />
+        <meshStandardMaterial 
+          color={podColor}
+          transparent={opacity < 1} 
+          opacity={opacity}
+          metalness={0.3}
+          roughness={0.7}
+          emissive={isSelected ? podColor : '#000000'}
+          emissiveIntensity={isSelected ? 0.2 : 0}
+        />
       </mesh>
       {isPresencePod && (
-        <Text
-          position={[0, POD_HEIGHT * 0.9, 0]}
-          fontSize={0.4}
-          color="#c239b3"
-          anchorX="center"
-          anchorY="bottom"
-          outlineWidth={0.01}
-          outlineColor="#ffffff"
-        >
-          YOU
-        </Text>
+        <group position={[0, POD_HEIGHT * 0.9, 0]}>
+          <mesh>
+            <boxGeometry args={[1.2, 0.3, 0.05]} />
+            <meshStandardMaterial color="#6264a7" transparent opacity={0.9} />
+          </mesh>
+          <Text
+            position={[0, 0, 0.03]}
+            fontSize={0.15}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            fontWeight="bold"
+          >
+            MY LOCATION
+          </Text>
+        </group>
+      )}
+      {showMetadata && pod && !isPresencePod && (
+        <group position={[0, POD_HEIGHT + 0.5, 0]}>
+          <mesh>
+            <planeGeometry args={[1.8, 0.4]} />
+            <meshBasicMaterial 
+              color="#0078d4" 
+              transparent 
+              opacity={0.9}
+            />
+          </mesh>
+          <Text
+            position={[0, 0, 0.01]}
+            fontSize={0.12}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+          >
+            {`P${podId} | ${assignmentCount}/${maxCapacity}${teamName ? ' | ' + teamName : ''}`}
+          </Text>
+        </group>
       )}
       {Array.from({ length: windowCount }).map((_, idx) => {
         const angle = (idx / windowCount) * Math.PI * 2 + Math.PI / windowCount;
@@ -221,6 +321,7 @@ function RingMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
+  showMetadata = false,
 }: {
   ring: Ring;
   floorY: number;
@@ -232,6 +333,7 @@ function RingMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
+  showMetadata?: boolean;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -265,6 +367,8 @@ function RingMesh({
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={presencePodId === pod.podId}
             opacity={isDimmed ? 0.2 : 1}
+            pod={pod}
+            showMetadata={showMetadata}
           />
         );
       })}
@@ -284,6 +388,7 @@ function FloorMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
+  showMetadata = false,
 }: {
   floor: Floor;
   floorIndex: number;
@@ -295,27 +400,34 @@ function FloorMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
+  showMetadata?: boolean;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
   const floorRadius = getTowerMaxRadius([floor]) * FLOOR_RADIUS_SCALE;
 
+  // Calculate occupancy metrics
+  const allPods = rings.flatMap(r => r.pods || []);
+  const totalPods = allPods.length;
+  const occupiedPods = allPods.filter(p => (p.assignments?.length ?? 0) > 0).length;
+
   return (
     <group>
-      {/* Floor label */}
+      {/* Floor label with occupancy metrics */}
       <Text
         position={[TowerX + floorRadius + 0.5, floorY, TowerZ]}
-        fontSize={0.5}
+        fontSize={0.6}
         color="#0078d4"
         anchorX="left"
         anchorY="middle"
-        outlineWidth={0.02}
+        outlineWidth={0.08}
         outlineColor="#ffffff"
+        fontWeight="bold"
       >
-        {floor.name}
+        {`${floor.name} (${occupiedPods}/${totalPods})`}
       </Text>
       {/* Floor platform */}
-      <mesh position={[TowerX, floorY - 0.1, TowerZ]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[TowerX, floorY - 0.1, TowerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[floorRadius, 6]} />
         <meshStandardMaterial color="#ffffff" transparent opacity={0.9} />
       </mesh>
@@ -345,6 +457,7 @@ function FloorMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
+          showMetadata={showMetadata}
         />
       ))}
     </group>
@@ -362,6 +475,7 @@ function TowerMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
+  showMetadata = false,
 }: {
   Tower: Tower;
   floors: Floor[];
@@ -372,6 +486,7 @@ function TowerMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
+  showMetadata?: boolean;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
   const labelY = sortedFloors.length * FLOOR_SPACING + 1;
@@ -402,6 +517,7 @@ function TowerMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
+          showMetadata={showMetadata}
         />
       ))}
     </group>
@@ -441,6 +557,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
   const [cameraInitialized, setCameraInitialized] = useState(false);
   const [navigationMode, setNavigationMode] = useState(false);
+  const [cameraDistanceToCenter, setCameraDistanceToCenter] = useState<number>(15);
 
   type Segment = { from: Vec3; to: Vec3; durationSec: number };
   type WorkflowRun = {
@@ -980,6 +1097,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
 
+  // Calculate if metadata should be shown based on camera distance (LOD system)
+  const showMetadataBadges = cameraDistanceToCenter < 20;
+
   const SceneControllers: React.FC = () => {
     const { camera, gl } = useThree();
 
@@ -1154,6 +1274,14 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }, [gl.domElement]);
 
     useFrame((_, delta) => {
+      // Update camera distance for LOD system
+      const centerX = 0;
+      const centerZ = 0;
+      const dx = camera.position.x - centerX;
+      const dz = camera.position.z - centerZ;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+      setCameraDistanceToCenter(distance);
+
       // Camera animation for smooth focus transitions
       if (cameraAnimation && !navigationMode) {
         const elapsed = Date.now() - cameraAnimation.startTime;
@@ -1491,8 +1619,44 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             />
           )}
           <ambientLight intensity={0.7} />
-          <directionalLight position={[10, 20, 10]} intensity={0.8} />
-          <HexagonalGrid size={50} hexRadius={2} color="#d8e0e8" />
+          <hemisphereLight intensity={0.4} color="#87ceeb" groundColor="#f0f2f5" />
+          <directionalLight 
+            position={[10, 20, 10]} 
+            intensity={0.8} 
+            castShadow
+            shadow-mapSize-width={1024}
+            shadow-mapSize-height={1024}
+            shadow-camera-far={50}
+            shadow-camera-left={-30}
+            shadow-camera-right={30}
+            shadow-camera-top={30}
+            shadow-camera-bottom={-30}
+          />
+          {/* Architectural accent spotlights per tower */}
+          {towers.map((tower) => {
+            const towerFloors = floors.filter(f => f.towerId === tower.towerId);
+            const maxFloors = towerFloors.length || 1;
+            const lightY = maxFloors * FLOOR_SPACING + 5;
+            const pos = TowerPositions[tower.towerId] || { x: 0, z: 0 };
+            return (
+              <spotLight
+                key={`light-${tower.towerId}`}
+                position={[pos.x, lightY, pos.z]}
+                angle={0.6}
+                penumbra={0.8}
+                intensity={0.3}
+                distance={lightY + 5}
+                target-position={[pos.x, 0, pos.z]}
+              />
+            );
+          })}
+          <HexagonalGrid 
+            size={50} 
+            hexRadius={2} 
+            color="#d8e0e8" 
+            towerPositions={TowerPositions}
+            floors={floors}
+          />
           
           {/* Road network connecting towers */}
           <RoadNetwork roads={roads} visible={true} />
@@ -1518,6 +1682,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                       if (info) focusOnPosition(info.origin);
                     }}
                     hidePresencePod={podNavState.active}
+                    showMetadata={showMetadataBadges}
                   />
                 );
               })}
@@ -1549,7 +1714,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               Empty
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#107c10', borderRadius: '2px' }} />
+              <span style={{ display: 'inline-block', width: 8, height: 8, background: '#2d8632', borderRadius: '2px' }} />
               Assigned
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
