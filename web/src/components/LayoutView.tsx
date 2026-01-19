@@ -3,6 +3,19 @@ import { Tower, Floor, Ring } from '../api';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import {
+  Vec3 as NavVec3,
+  NavigationState,
+  DEFAULT_NAVIGATION_STATE,
+  SPEED_VALUES,
+  SpeedLevel,
+  CameraHeight,
+  NavAction,
+  NAV_KEY_BINDINGS,
+  parabolicLerp,
+} from '../navigation';
+import { useRoadNetwork, findClosestRoad, findTowerAtPosition, getRoadPosition, getConnectedRoads } from '../navigation';
+import { RoadNetwork } from '../navigation';
 
 const POD_RADIUS = 0.75;
 const POD_HEIGHT = POD_RADIUS * 0.8 * 2;  // 1.2 - matches diameter for 1:1 ratio
@@ -394,6 +407,8 @@ interface LayoutViewProps {
   presencePodId?: number | null;
   processRequest?: { podId: number; nonce: number } | null;
   onRequestProcessSelected?: () => void;
+  /** Callback when navigation state changes - passes state and action handler for HUD rendering */
+  onNavigationStateChange?: (state: NavigationState | null, handleAction: ((action: NavAction) => void) | null) => void;
 }
 
 export const LayoutView: React.FC<LayoutViewProps> = ({
@@ -408,6 +423,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   presencePodId,
   processRequest,
   onRequestProcessSelected,
+  onNavigationStateChange,
 }) => {
   const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
   const [cameraInitialized, setCameraInitialized] = useState(false);
@@ -470,6 +486,65 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
     return positions;
   }, [towers, floors]);
+
+  // Calculate hexSize for road network (same formula as TowerPositions)
+  const hexSize = useMemo(() => {
+    if (towers.length === 0) return 1;
+    let maxTowerRadiusWorld = 1;
+    for (const tower of towers) {
+      const towerFloors = floors.filter((f) => f.towerId === tower.towerId);
+      maxTowerRadiusWorld = Math.max(maxTowerRadiusWorld, getTowerMaxRadius(towerFloors) * FLOOR_RADIUS_SCALE);
+    }
+    const minCenterDist = 2 * maxTowerRadiusWorld + Tower_GAP;
+    return minCenterDist / Math.sqrt(3);
+  }, [towers, floors]);
+
+  // Road network for pod navigation
+  const { roads, boundaries } = useRoadNetwork({
+    towers,
+    floors,
+    hexSize,
+    floorRadiusScale: FLOOR_RADIUS_SCALE,
+    floorSpacing: FLOOR_SPACING,
+  });
+
+  // Pod navigation state
+  const [podNavState, setPodNavState] = useState<NavigationState>({
+    ...DEFAULT_NAVIGATION_STATE,
+  });
+  const podNavStateRef = useRef<NavigationState>(podNavState);
+  podNavStateRef.current = podNavState;
+
+  // Get presence pod position for starting navigation
+  const presencePodPosition = useMemo<Vec3 | null>(() => {
+    if (!presencePodId) return null;
+    for (const floor of floors) {
+      for (const ring of floor.rings || []) {
+        for (const pod of ring.pods || []) {
+          if (pod.podId === presencePodId) {
+            const towerPos = TowerPositions[floor.towerId] ?? { x: 0, z: 0 };
+            const floorsInTower = floors.filter((f) => f.towerId === floor.towerId);
+            const sortedFloors = [...floorsInTower].sort((a, b) => a.orderIndex - b.orderIndex);
+            const floorIndex = sortedFloors.findIndex((f) => f.floorId === floor.floorId);
+            const floorY = (floorIndex >= 0 ? floorIndex : 0) * FLOOR_SPACING;
+            
+            const radius = ring.radiusIndex * 2;
+            let x: number, z: number;
+            if (pod.slotIndex === -1) {
+              x = towerPos.x;
+              z = towerPos.z;
+            } else {
+              const angle = (2 * Math.PI * pod.slotIndex) / ring.slots;
+              x = towerPos.x + radius * Math.cos(angle);
+              z = towerPos.z + radius * Math.sin(angle);
+            }
+            return [x, floorY + POD_HEIGHT / 2, z];
+          }
+        }
+      }
+    }
+    return null;
+  }, [presencePodId, floors, TowerPositions]);
 
   // Camera position based on towers
   const idealCameraPosition = useMemo<[number, number, number]>(() => {
@@ -648,6 +723,176 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     startWorkflow(processRequest.podId);
   }, [processRequest?.nonce]);
 
+  // Pod navigation action handler
+  const handlePodNavAction = useCallback((action: NavAction) => {
+    const state = podNavStateRef.current;
+    
+    switch (action) {
+      case 'toggle-nav':
+        if (state.active) {
+          // Exit pod navigation
+          setPodNavState(s => ({ ...s, active: false }));
+          setNavigationMode(false);
+        } else if (presencePodPosition) {
+          // Enter pod navigation from presence pod
+          const closestRoad = findClosestRoad(presencePodPosition as NavVec3, roads);
+          setPodNavState({
+            ...DEFAULT_NAVIGATION_STATE,
+            active: true,
+            position: presencePodPosition as NavVec3,
+            currentRoad: closestRoad?.road || null,
+            roadProgress: closestRoad?.progress || 0,
+          });
+          setNavigationMode(true);
+        }
+        break;
+        
+      case 'exit-nav':
+        setPodNavState(s => ({ ...s, active: false }));
+        setNavigationMode(false);
+        break;
+        
+      case 'speed-up':
+        if (state.verticalMode === 'grounded') {
+          setPodNavState(s => ({ ...s, speed: Math.min(5, s.speed + 1) as SpeedLevel }));
+        }
+        break;
+        
+      case 'speed-down':
+        if (state.verticalMode === 'grounded') {
+          setPodNavState(s => ({ ...s, speed: Math.max(0, s.speed - 1) as SpeedLevel }));
+        }
+        break;
+        
+      case 'rotate-left':
+        setPodNavState(s => {
+          const newRot = ((s.podRotation - 1 + 6) % 6) as 0 | 1 | 2 | 3 | 4 | 5;
+          return { ...s, podRotation: newRot, movementDirection: (newRot / 6) * Math.PI * 2 };
+        });
+        break;
+        
+      case 'rotate-right':
+        setPodNavState(s => {
+          const newRot = ((s.podRotation + 1) % 6) as 0 | 1 | 2 | 3 | 4 | 5;
+          return { ...s, podRotation: newRot, movementDirection: (newRot / 6) * Math.PI * 2 };
+        });
+        break;
+        
+      case 'pan-left':
+        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan - 15 + 360) % 360 }));
+        break;
+        
+      case 'pan-right':
+        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan + 15) % 360 }));
+        break;
+        
+      case 'pan-left-fine':
+        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan - 1 + 360) % 360 }));
+        break;
+        
+      case 'pan-right-fine':
+        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan + 1) % 360 }));
+        break;
+        
+      case 'tilt-up':
+        setPodNavState(s => ({ ...s, cameraTilt: Math.min(180, s.cameraTilt + 5) }));
+        break;
+        
+      case 'tilt-down':
+        setPodNavState(s => ({ ...s, cameraTilt: Math.max(0, s.cameraTilt - 5) }));
+        break;
+        
+      case 'ascend':
+        if (state.inTowerId !== null) {
+          const boundary = boundaries.find(b => b.towerId === state.inTowerId);
+          if (boundary) {
+            const maxFloor = Math.floor(boundary.maxFloorY / FLOOR_SPACING);
+            if (state.currentFloor >= maxFloor) {
+              // At top - trigger ejection
+              const connectedRoads = getConnectedRoads(state.inTowerId, roads);
+              let ejectionEnd: NavVec3 = [state.position[0], 0, state.position[2] + 10];
+              if (connectedRoads.length > 0) {
+                const targetRoad = connectedRoads[Math.floor(Math.random() * connectedRoads.length)];
+                const landPos = getRoadPosition(targetRoad, 0.5);
+                ejectionEnd = landPos;
+              }
+              setPodNavState(s => ({
+                ...s,
+                verticalMode: 'ejected',
+                ejectionProgress: 0,
+                ejectionStart: [...s.position] as NavVec3,
+                ejectionEnd,
+              }));
+            } else if (state.verticalMode !== 'ascending') {
+              setPodNavState(s => ({ ...s, verticalMode: 'ascending' }));
+            }
+          }
+        }
+        break;
+        
+      case 'descend':
+        if (state.inTowerId !== null && state.verticalMode !== 'ejected') {
+          if (state.currentFloor <= 0) {
+            // Exit tower to road
+            const closestRoad = findClosestRoad(state.position, roads);
+            setPodNavState(s => ({
+              ...s,
+              inTowerId: null,
+              verticalMode: 'grounded',
+              currentRoad: closestRoad?.road || null,
+              roadProgress: closestRoad?.progress || 0,
+            }));
+          } else if (state.verticalMode !== 'descending') {
+            setPodNavState(s => ({ ...s, verticalMode: 'descending' }));
+          }
+        }
+        break;
+        
+      case 'camera-slot-1':
+        setPodNavState(s => ({ ...s, cameraSlot: 0 }));
+        break;
+      case 'camera-slot-2':
+        setPodNavState(s => ({ ...s, cameraSlot: 1 }));
+        break;
+      case 'camera-slot-3':
+        setPodNavState(s => ({ ...s, cameraSlot: 2 }));
+        break;
+      case 'camera-slot-4':
+        setPodNavState(s => ({ ...s, cameraSlot: 3 }));
+        break;
+      case 'camera-slot-5':
+        setPodNavState(s => ({ ...s, cameraSlot: 4 }));
+        break;
+      case 'camera-slot-6':
+        setPodNavState(s => ({ ...s, cameraSlot: 5 }));
+        break;
+      case 'camera-slot-7':
+        setPodNavState(s => ({ ...s, cameraSlot: 6 }));
+        break;
+        
+      case 'height-up':
+        setPodNavState(s => ({ ...s, cameraHeight: Math.min(4, s.cameraHeight + 1) as CameraHeight }));
+        break;
+        
+      case 'height-down':
+        setPodNavState(s => ({ ...s, cameraHeight: Math.max(0, s.cameraHeight - 1) as CameraHeight }));
+        break;
+        
+      case 'reset-camera':
+        setPodNavState(s => ({ ...s, cameraSlot: 0, cameraHeight: 2, cameraPan: 0, cameraTilt: 90 }));
+        break;
+    }
+  }, [presencePodPosition, roads, boundaries]);
+
+  // Notify parent when navigation state changes (for HUD rendering in parent)
+  useEffect(() => {
+    if (podNavState.active) {
+      onNavigationStateChange?.(podNavState, handlePodNavAction);
+    } else {
+      onNavigationStateChange?.(null, null);
+    }
+  }, [podNavState, onNavigationStateChange, handlePodNavAction]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // Ignore keyboard shortcuts when typing in input fields
@@ -656,41 +901,60 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         return;
       }
 
+      // Check for pod navigation actions first
+      if (podNavState.active || event.key === 'n' || event.key === 'N') {
+        const action = NAV_KEY_BINDINGS[event.key];
+        if (action) {
+          event.preventDefault();
+          handlePodNavAction(action);
+          return;
+        }
+      }
+
+      // Original navigation mode toggle
       if (event.key === 'n' || event.key === 'N') {
         event.preventDefault();
+        if (!presencePodPosition) {
+          // Can't enter pod nav without presence
+          console.warn('Set presence in a pod first to use pod navigation');
+          return;
+        }
         setNavigationMode((v) => !v);
       }
       if (event.key === 'Escape') {
         setNavigationMode(false);
+        setPodNavState(s => ({ ...s, active: false }));
       }
       if (event.key === 'p' || event.key === 'P') {
         onRequestProcessSelected?.();
       }
-      if (event.key === 'f' || event.key === 'F') {
-        event.preventDefault();
-        if (selectedPodId) {
-          const info = findPodSceneInfo(selectedPodId);
-          if (info) {
-            focusOnPosition(info.origin);
+      if (!podNavState.active) {
+        if (event.key === 'f' || event.key === 'F') {
+          event.preventDefault();
+          if (selectedPodId) {
+            const info = findPodSceneInfo(selectedPodId);
+            if (info) {
+              focusOnPosition(info.origin);
+            }
           }
         }
-      }
-      if (event.key === 'b' || event.key === 'B') {
-        event.preventDefault();
-        if (previousCameraPosition) {
-          setCameraAnimation({
-            from: cameraPosition,
-            to: previousCameraPosition,
-            startTime: Date.now(),
-            duration: 800,
-          });
-          setPreviousCameraPosition(null);
+        if (event.key === 'b' || event.key === 'B') {
+          event.preventDefault();
+          if (previousCameraPosition) {
+            setCameraAnimation({
+              from: cameraPosition,
+              to: previousCameraPosition,
+              startTime: Date.now(),
+              duration: 800,
+            });
+            setPreviousCameraPosition(null);
+          }
         }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onRequestProcessSelected, selectedPodId, previousCameraPosition, findPodSceneInfo, focusOnPosition, cameraPosition]);
+  }, [onRequestProcessSelected, selectedPodId, previousCameraPosition, findPodSceneInfo, focusOnPosition, cameraPosition, podNavState.active, presencePodPosition, handlePodNavAction]);
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
 
@@ -808,6 +1072,65 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       };
     }, [navigationMode, gl.domElement, camera]);
 
+    // Ref to track navigation active state for mouse control without re-running effect
+    const podNavActiveRef = useRef(podNavState.active);
+    podNavActiveRef.current = podNavState.active;
+
+    // Mouse control for pod navigation pan/tilt
+    useEffect(() => {
+      // Only set up mouse control once, use ref to check active state
+      gl.domElement.style.cursor = podNavActiveRef.current ? 'crosshair' : 'default';
+      
+      let isPointerLocked = false;
+      
+      const onMouseMove = (event: MouseEvent) => {
+        if (!isPointerLocked || !podNavActiveRef.current) return;
+        
+        const sensitivity = 0.15;
+        const deltaX = event.movementX * sensitivity;
+        const deltaY = event.movementY * sensitivity;
+        
+        setPodNavState(s => ({
+          ...s,
+          cameraPan: (s.cameraPan + deltaX + 360) % 360,
+          cameraTilt: Math.max(0, Math.min(180, s.cameraTilt - deltaY)),
+        }));
+      };
+      
+      const onPointerLockChange = () => {
+        isPointerLocked = document.pointerLockElement === gl.domElement;
+        gl.domElement.style.cursor = isPointerLocked ? 'none' : (podNavActiveRef.current ? 'crosshair' : 'default');
+      };
+      
+      const onClick = () => {
+        if (!isPointerLocked && podNavActiveRef.current) {
+          gl.domElement.requestPointerLock();
+        }
+      };
+      
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape' && isPointerLocked) {
+          document.exitPointerLock();
+        }
+      };
+      
+      gl.domElement.addEventListener('click', onClick);
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('pointerlockchange', onPointerLockChange);
+      window.addEventListener('keydown', onKeyDown);
+      
+      return () => {
+        gl.domElement.removeEventListener('click', onClick);
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('pointerlockchange', onPointerLockChange);
+        window.removeEventListener('keydown', onKeyDown);
+        if (document.pointerLockElement === gl.domElement) {
+          document.exitPointerLock();
+        }
+        gl.domElement.style.cursor = 'default';
+      };
+    }, [gl.domElement]);
+
     useFrame((_, delta) => {
       // Camera animation for smooth focus transitions
       if (cameraAnimation && !navigationMode) {
@@ -862,8 +1185,218 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         return { ...current, position: nextPos, segmentElapsedSec: nextElapsed };
       });
 
-      // Navigation camera tick
-      if (navigationMode) {
+      // Pod navigation mode tick
+      if (podNavState.active) {
+        const state = podNavStateRef.current;
+        const speed = SPEED_VALUES[state.speed as SpeedLevel];
+        
+        // Handle different movement modes
+        if (state.verticalMode === 'grounded' && state.currentRoad && speed > 0) {
+          // Moving along road
+          const roadLength = Math.sqrt(
+            Math.pow(state.currentRoad.toWorld[0] - state.currentRoad.fromWorld[0], 2) +
+            Math.pow(state.currentRoad.toWorld[2] - state.currentRoad.fromWorld[2], 2)
+          );
+          
+          const progressDelta = (speed * delta) / roadLength;
+          
+          // Determine movement direction based on pod rotation
+          const roadAngle = Math.atan2(
+            state.currentRoad.toWorld[0] - state.currentRoad.fromWorld[0],
+            state.currentRoad.toWorld[2] - state.currentRoad.fromWorld[2]
+          );
+          const podAngle = (state.podRotation / 6) * Math.PI * 2;
+          
+          // Check if moving forward or backward along road
+          const angleDiff = Math.abs(((roadAngle - podAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          const movingForward = angleDiff < Math.PI / 2;
+          
+          let newProgress = state.roadProgress;
+          if (movingForward) {
+            newProgress = Math.min(1, state.roadProgress + progressDelta);
+          } else {
+            newProgress = Math.max(0, state.roadProgress - progressDelta);
+          }
+          
+          // Update position
+          const newPos = getRoadPosition(state.currentRoad, newProgress);
+          const updatedPos: NavVec3 = [newPos[0], POD_HEIGHT / 2, newPos[2]];
+          
+          // Check if entering a tower boundary
+          const tower = findTowerAtPosition(updatedPos, boundaries);
+          if (tower) {
+            setPodNavState(s => ({
+              ...s,
+              position: updatedPos,
+              roadProgress: newProgress,
+              inTowerId: tower.towerId,
+              currentFloor: 0,
+              speed: 0,
+              currentRoad: null,
+            }));
+          } else if (newProgress >= 1 || newProgress <= 0) {
+            // Reached end of road - transition to connected road
+            const atTowerId = newProgress >= 1 
+              ? state.currentRoad.toTowerId 
+              : state.currentRoad.fromTowerId;
+            
+            const connectedRoads = getConnectedRoads(atTowerId, roads)
+              .filter(r => r.id !== state.currentRoad!.id);
+            
+            if (connectedRoads.length > 0) {
+              // Pick road closest to current direction
+              let bestRoad = connectedRoads[0];
+              let bestAngleDiff = Infinity;
+              
+              for (const road of connectedRoads) {
+                const rAngle = Math.atan2(
+                  road.toWorld[0] - road.fromWorld[0],
+                  road.toWorld[2] - road.fromWorld[2]
+                );
+                const diff = Math.abs(((rAngle - podAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+                if (diff < bestAngleDiff) {
+                  bestAngleDiff = diff;
+                  bestRoad = road;
+                }
+              }
+              
+              // Start from the tower end
+              const nextProgress = bestRoad.fromTowerId === atTowerId ? 0 : 1;
+              setPodNavState(s => ({
+                ...s,
+                position: updatedPos,
+                currentRoad: bestRoad,
+                roadProgress: nextProgress,
+              }));
+            } else {
+              setPodNavState(s => ({
+                ...s,
+                position: updatedPos,
+                roadProgress: newProgress,
+              }));
+            }
+          } else {
+            setPodNavState(s => ({
+              ...s,
+              position: updatedPos,
+              roadProgress: newProgress,
+            }));
+          }
+        } else if (state.verticalMode === 'ascending') {
+          // Ascending to next floor
+          const targetY = (state.currentFloor + 1) * FLOOR_SPACING + POD_HEIGHT / 2;
+          const currentY = state.position[1];
+          const ascentSpeed = 3;
+          
+          const newY = Math.min(targetY, currentY + ascentSpeed * delta);
+          const updatedPos: NavVec3 = [state.position[0], newY, state.position[2]];
+          
+          if (newY >= targetY) {
+            setPodNavState(s => ({
+              ...s,
+              position: [s.position[0], targetY, s.position[2]],
+              currentFloor: s.currentFloor + 1,
+              verticalMode: 'grounded',
+            }));
+          } else {
+            setPodNavState(s => ({ ...s, position: updatedPos }));
+          }
+        } else if (state.verticalMode === 'descending') {
+          // Descending to previous floor
+          const targetY = (state.currentFloor - 1) * FLOOR_SPACING + POD_HEIGHT / 2;
+          const currentY = state.position[1];
+          const descentSpeed = 3;
+          
+          const newY = Math.max(targetY, currentY - descentSpeed * delta);
+          const updatedPos: NavVec3 = [state.position[0], newY, state.position[2]];
+          
+          if (newY <= targetY) {
+            setPodNavState(s => ({
+              ...s,
+              position: [s.position[0], targetY, s.position[2]],
+              currentFloor: s.currentFloor - 1,
+              verticalMode: 'grounded',
+            }));
+          } else {
+            setPodNavState(s => ({ ...s, position: updatedPos }));
+          }
+        } else if (state.verticalMode === 'ejected' && state.ejectionStart && state.ejectionEnd) {
+          // Parabolic ejection arc
+          const ejectionDuration = 3;
+          const newProgress = Math.min(1, state.ejectionProgress + delta / ejectionDuration);
+          
+          const arcPos = parabolicLerp(
+            state.ejectionStart,
+            state.ejectionEnd,
+            newProgress,
+            state.ejectionPeakHeight
+          );
+          
+          if (newProgress >= 1) {
+            // Landed
+            const closestRoad = findClosestRoad(state.ejectionEnd, roads);
+            setPodNavState(s => ({
+              ...s,
+              position: [s.ejectionEnd![0], POD_HEIGHT / 2, s.ejectionEnd![2]],
+              verticalMode: 'grounded',
+              inTowerId: null,
+              currentFloor: 0,
+              ejectionStart: null,
+              ejectionEnd: null,
+              ejectionProgress: 0,
+              currentRoad: closestRoad?.road || null,
+              roadProgress: closestRoad?.progress || 0,
+            }));
+          } else {
+            setPodNavState(s => ({
+              ...s,
+              position: arcPos,
+              ejectionProgress: newProgress,
+            }));
+          }
+        }
+        
+        // Update camera position and rotation for pod navigation
+        const camState = podNavStateRef.current;
+        
+        // Height offset: 5 levels evenly spaced from floor to ceiling
+        const heightRatio = camState.cameraHeight / 4;
+        const heightOffset = POD_HEIGHT * 0.1 + (POD_HEIGHT * 0.8) * heightRatio;
+        
+        // Slot offset: 0 = center, 1-6 = toward each hex face
+        let slotOffsetX = 0;
+        let slotOffsetZ = 0;
+        
+        if (camState.cameraSlot > 0) {
+          const slotAngle = ((camState.cameraSlot - 1) / 6) * Math.PI * 2;
+          const podRotationAngle = (camState.podRotation / 6) * Math.PI * 2;
+          const totalAngle = slotAngle + podRotationAngle;
+          
+          const slotDistance = POD_RADIUS * 0.5;
+          slotOffsetX = Math.sin(totalAngle) * slotDistance;
+          slotOffsetZ = Math.cos(totalAngle) * slotDistance;
+        }
+        
+        const camPos: Vec3 = [
+          camState.position[0] + slotOffsetX,
+          camState.position[1] + heightOffset,
+          camState.position[2] + slotOffsetZ,
+        ];
+        
+        const podRotationRad = (camState.podRotation / 6) * Math.PI * 2;
+        const panRad = (camState.cameraPan / 180) * Math.PI;
+        const tiltRad = ((camState.cameraTilt - 90) / 180) * Math.PI;
+        
+        camera.position.set(...camPos);
+        camera.rotation.order = 'YXZ';
+        camera.rotation.set(-tiltRad, podRotationRad + panRad, 0);
+        camera.updateProjectionMatrix();
+        
+        return;
+      }
+
+      // Original navigation camera tick (legacy mode)
+      if (navigationMode && !podNavState.active) {
         const stepAngle = Math.PI / 24; // ~7.5 degrees per step
         const yaw = navStateRef.current.yawStep * stepAngle;
         const pitch = navStateRef.current.pitchStep * stepAngle;
@@ -915,6 +1448,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           <ambientLight intensity={0.7} />
           <directionalLight position={[10, 20, 10]} intensity={0.8} />
           <HexagonalGrid size={50} hexRadius={2} color="#d8e0e8" />
+          
+          {/* Road network connecting towers */}
+          <RoadNetwork roads={roads} visible={true} />
 
           <SceneControllers />
 

@@ -79,7 +79,7 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
         flexWrap: 'wrap',
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: '0 0 auto' }}>
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           My Presence
         </div>
@@ -92,7 +92,8 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>
         <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>I am:</label>
         <select
           value={selectedEntityId ?? ''}

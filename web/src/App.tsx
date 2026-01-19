@@ -8,6 +8,7 @@ import { FloorManager } from './components/FloorManager';
 import { EntityLibrary } from './components/EntityLibrary';
 import DigitalTwinSelector from './components/DigitalTwinSelector';
 import { floorAPI, towerAPI, healthAPI, Tower, Floor, ApiHealth } from './api';
+import { NavigationState, NavAction, PodNavigationHUD } from './navigation';
 
 const PRESENCE_STORAGE_KEY = 'arpoge_my_person_entity_id';
 
@@ -38,6 +39,10 @@ function App() {
   const [centerSplitPercent, setCenterSplitPercent] = useState(50);
   const isDraggingRef = useRef(false);
   const centerContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Pod navigation state (for HUD rendering in lower panel)
+  const [podNavState, setPodNavState] = useState<NavigationState | null>(null);
+  const podNavActionRef = useRef<((action: NavAction) => void) | null>(null);
 
   // Load towers
   const refreshtowers = useCallback(async () => {
@@ -454,55 +459,78 @@ function App() {
                   handleProcessPod(selectedPodId);
                 }
               }}
-            />
-          </div>
-          <div
-            style={{
-              height: '4px',
-              backgroundColor: 'var(--border)',
-              cursor: 'ns-resize',
-              position: 'relative',
-              zIndex: 10,
-            }}
-            onMouseDown={handleSplitterMouseDown}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: '40px',
-                height: '3px',
-                backgroundColor: 'var(--text-muted)',
-                borderRadius: '2px',
+              onNavigationStateChange={(state, handleAction) => {
+                setPodNavState(state);
+                podNavActionRef.current = handleAction;
               }}
             />
           </div>
-          <div
-            style={{
-              height: `${100 - centerSplitPercent}%`,
-              minHeight: 0,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <ContextPanel
-              digitalTwinId={currentDigitalTwinId}
-              towers={towers}
-              floors={floors}
-              selectedFloorId={selectedFloorId}
-              selectedPodId={showPodDetails ? selectedPodId : null}
-              selectedPodInfo={selectedPodInfo}
-              onLayoutChanged={handleFloorsChanged}
-              onPodHighlight={handlePodHighlight}
-              onPodDetailsOpen={handlePodDetailsOpen}
-              onAssignmentsChanged={notifyAssignmentsChanged}
-              onPodUpdated={handleFloorsChanged}
-              onClearPodSelection={() => { setSelectedPodId(null); setShowPodDetails(false); }}
-              onProcessPod={handleProcessPod}
-            />
-          </div>
+          {podNavState?.active ? (
+            /* HUD panel when navigation is active */
+            <div
+              style={{
+                height: `${100 - centerSplitPercent}%`,
+                minHeight: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'var(--bg-surface)',
+                borderTop: '1px solid var(--border)',
+              }}
+            >
+              <PodNavigationHUD state={podNavState} onAction={(action) => podNavActionRef.current?.(action)} />
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  height: '4px',
+                  backgroundColor: 'var(--border)',
+                  cursor: 'ns-resize',
+                  position: 'relative',
+                  zIndex: 10,
+                }}
+                onMouseDown={handleSplitterMouseDown}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '40px',
+                    height: '3px',
+                    backgroundColor: 'var(--text-muted)',
+                    borderRadius: '2px',
+                  }}
+                />
+              </div>
+              <div
+                style={{
+                  height: `${100 - centerSplitPercent}%`,
+                  minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <ContextPanel
+                  digitalTwinId={currentDigitalTwinId}
+                  towers={towers}
+                  floors={floors}
+                  selectedFloorId={selectedFloorId}
+                  selectedPodId={showPodDetails ? selectedPodId : null}
+                  selectedPodInfo={selectedPodInfo}
+                  onLayoutChanged={handleFloorsChanged}
+                  onPodHighlight={handlePodHighlight}
+                  onPodDetailsOpen={handlePodDetailsOpen}
+                  onAssignmentsChanged={notifyAssignmentsChanged}
+                  onPodUpdated={handleFloorsChanged}
+                  onClearPodSelection={() => { setSelectedPodId(null); setShowPodDetails(false); }}
+                  onProcessPod={handleProcessPod}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div
