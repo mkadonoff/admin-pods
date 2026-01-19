@@ -45,27 +45,27 @@ const RoadLine: React.FC<RoadLineProps> = ({ road }) => {
       {/* Main road line */}
       <Line
         points={points}
-        color="#ffffff"
-        lineWidth={3}
+        color="#0078d4"
+        lineWidth={4}
         transparent
-        opacity={0.6}
+        opacity={0.8}
       />
       {/* Glow effect - wider, more transparent line behind */}
       <Line
         points={points}
-        color="#aaccff"
-        lineWidth={8}
+        color="#0078d4"
+        lineWidth={12}
         transparent
-        opacity={0.15}
+        opacity={0.25}
       />
       {/* Road center markers at endpoints */}
       <mesh position={[road.fromWorld[0], 0.03, road.fromWorld[2]]}>
-        <circleGeometry args={[0.3, 16]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.4} />
+        <circleGeometry args={[0.4, 16]} />
+        <meshBasicMaterial color="#0078d4" transparent opacity={0.6} />
       </mesh>
       <mesh position={[road.toWorld[0], 0.03, road.toWorld[2]]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.3, 16]} />
-        <meshBasicMaterial color="#ffffff" transparent opacity={0.4} />
+        <circleGeometry args={[0.4, 16]} />
+        <meshBasicMaterial color="#0078d4" transparent opacity={0.6} />
       </mesh>
     </group>
   );
