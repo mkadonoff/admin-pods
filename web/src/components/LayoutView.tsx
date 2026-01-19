@@ -496,10 +496,13 @@ function TowerMesh({
       {/* Tower label */}
       <Text
         position={[position.x, labelY, position.z]}
-        fontSize={0.8}
+        fontSize={0.9}
         color="#0078d4"
         anchorX="center"
         anchorY="bottom"
+        outlineWidth={0.08}
+        outlineColor="#ffffff"
+        fontWeight="bold"
       >
         {Tower.name}
       </Text>
