@@ -354,7 +354,7 @@ function App() {
           <img src={arpogeLogo} alt="Arpoge" style={{ height: '28px', width: 'auto' }} />
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
             <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)', letterSpacing: '0.3px' }}>
-              ARPOGE Digital Twin Studio
+              Digital Twin Studio
             </div>
             <div style={{ 
               fontSize: '11px', 
