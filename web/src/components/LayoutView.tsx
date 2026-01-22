@@ -408,14 +408,9 @@ function FloorMesh({
   const rings = floor.rings || [];
   const floorRadius = getTowerMaxRadius([floor]) * FLOOR_RADIUS_SCALE;
 
-  // Calculate occupancy metrics
-  const allPods = rings.flatMap(r => r.pods || []);
-  const totalPods = allPods.length;
-  const occupiedPods = allPods.filter(p => (p.assignments?.length ?? 0) > 0).length;
-
   return (
     <group>
-      {/* Floor label with occupancy metrics */}
+      {/* Floor label */}
       <Text
         position={[TowerX + floorRadius + 0.5, floorY + 0.7, TowerZ]}
         fontSize={0.6}
@@ -426,7 +421,7 @@ function FloorMesh({
         outlineColor="#ffffff"
         fontWeight="bold"
       >
-        {`${floor.name} (${occupiedPods}/${totalPods})`}
+        {floor.name}
       </Text>
       {/* Floor platform */}
       <mesh position={[TowerX, floorY - 0.1, TowerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
