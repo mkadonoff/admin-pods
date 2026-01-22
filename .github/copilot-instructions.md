@@ -152,7 +152,7 @@ No test framework is currently configured for the frontend. Consider adding Vite
 
 ## Code Formatting
 
-Prettier is configured (<a href=".prettierrc">.prettierrc</a>) but no format scripts exist. To format code manually:
+Prettier is configured (<a href=".prettierrc">.prettierrc</a>) but no format scripts are defined in api/ or web/ package.json files. To format code manually:
 ```bash
 # Install prettier globally or use npx
 npx prettier --write "**/*.{ts,tsx,js,jsx,json,md}"
