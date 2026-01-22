@@ -31,6 +31,7 @@ export interface DigitalTwin {
 export interface Tower {
   towerId: number;
   name: string;
+  orderIndex?: number;
   digitalTwinId: number;
   digitalTwin?: DigitalTwin;
   createdAt: string;
@@ -101,8 +102,8 @@ export const towerAPI = {
     return API.get<Tower[]>('/towers', { params });
   },
   get: (id: number) => API.get<Tower & { floors: Floor[] }>(`/towers/${id}`),
-  create: (data: { name: string; digitalTwinId: number }) => API.post<Tower>('/towers', data),
-  update: (id: number, name: string) => API.patch<Tower>(`/towers/${id}`, { name }),
+  create: (data: { name: string; digitalTwinId: number; orderIndex?: number }) => API.post<Tower>('/towers', data),
+  update: (id: number, data: Partial<{ name: string; orderIndex: number }>) => API.patch<Tower>(`/towers/${id}`, data),
   delete: (id: number) => API.delete(`/towers/${id}`),
 };
 

@@ -15,7 +15,7 @@ export default function createTowerRoutes(prisma: PrismaClient) {
       
       const towers = await prisma.tower.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy: { orderIndex: 'asc' },
         include: {
           digitalTwin: true,
           _count: { select: { floors: true } },
@@ -66,7 +66,7 @@ export default function createTowerRoutes(prisma: PrismaClient) {
   // POST /towers - create new tower
   router.post('/', async (req: Request, res: Response) => {
     try {
-      const { name, digitalTwinId } = req.body;
+      const { name, digitalTwinId, orderIndex } = req.body;
       if (!name || typeof name !== 'string' || name.trim() === '') {
         return res.status(400).json({ error: 'Name is required' });
       }
@@ -76,7 +76,8 @@ export default function createTowerRoutes(prisma: PrismaClient) {
       const tower = await prisma.tower.create({  
         data: { 
           name: name.trim(),
-          digitalTwinId: parseInt(digitalTwinId)
+          digitalTwinId: parseInt(digitalTwinId),
+          orderIndex: orderIndex ?? 0,
         },
       });
       res.status(201).json(tower);
@@ -91,14 +92,17 @@ export default function createTowerRoutes(prisma: PrismaClient) {
     }
   });
 
-  // PATCH /towers/:id - rename tower
+  // PATCH /towers/:id - update tower (name, orderIndex)
   router.patch('/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { name } = req.body;
+      const { name, orderIndex } = req.body;
       const tower = await prisma.tower.update({
         where: { towerId: parseInt(id) },
-        data: { name: name?.trim() },
+        data: { 
+          ...(name !== undefined && { name: name?.trim() }),
+          ...(orderIndex !== undefined && { orderIndex }),
+        },
       });
       res.json(tower);
     } catch (error: any) {

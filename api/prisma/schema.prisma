@@ -23,6 +23,7 @@ model DigitalTwin {
 model Tower {
   towerId       Int      @id @default(autoincrement())
   name          String
+  orderIndex    Int      @default(0)
   digitalTwinId Int
   digitalTwin   DigitalTwin @relation(fields: [digitalTwinId], references: [digitalTwinId], onDelete: Cascade)
   createdAt     DateTime @default(now())

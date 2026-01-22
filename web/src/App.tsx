@@ -186,7 +186,7 @@ function App() {
   // Rename Tower
   const handleRenameTower = async (TowerId: number, newName: string) => {
     try {
-      await towerAPI.update(TowerId, newName);
+      await towerAPI.update(TowerId, { name: newName });
       await refreshtowers();
     } catch (error: any) {
       console.error('Failed to rename Tower', error);
@@ -449,6 +449,7 @@ function App() {
             onDeleteTower={handleDeleteTower}
             onRenameTower={handleRenameTower}
             onFloorsChanged={handleFloorsChanged}
+            onTowersChanged={refreshtowers}
           />
         </div>
 

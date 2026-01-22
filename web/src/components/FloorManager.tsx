@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { floorAPI, Tower, Floor } from '../api';
+import { floorAPI, towerAPI, Tower, Floor } from '../api';
 
 interface FloorManagerProps {
   towers: Tower[];
@@ -11,6 +11,7 @@ interface FloorManagerProps {
   onDeleteTower: (id: number) => void;
   onRenameTower: (id: number, newName: string) => void;
   onFloorsChanged: () => void;
+  onTowersChanged: () => void;
   variant?: 'sidebar' | 'panel';
 }
 
@@ -24,6 +25,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   onDeleteTower,
   onRenameTower,
   onFloorsChanged,
+  onTowersChanged,
   variant = 'sidebar',
 }) => {
   const [newFloorName, setNewFloorName] = useState('');
@@ -146,6 +148,37 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     setEditingTowerId(null);
   };
 
+  const handleReorderTower = async (towerId: number, direction: 'up' | 'down') => {
+    const tower = towers.find((t) => t.towerId === towerId);
+    if (!tower) return;
+
+    // Sort towers by orderIndex ascending
+    const sortedTowers = [...towers].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+    const currentIndex = sortedTowers.findIndex((t) => t.towerId === towerId);
+    
+    // 'up' = decrease index (move earlier), 'down' = increase index (move later)
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    
+    // Check bounds
+    if (targetIndex < 0 || targetIndex >= sortedTowers.length) return;
+
+    // Swap positions
+    const reordered = [...sortedTowers];
+    const [movedTower] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, movedTower);
+
+    // Reassign sequential orderIndex values
+    try {
+      await Promise.all(
+        reordered.map((t, index) => 
+          towerAPI.update(t.towerId, { orderIndex: index })
+        )
+      );
+      onTowersChanged();
+    } catch (error) {
+      console.error('Failed to reorder tower', error);
+    }
+  };
   return (
     <div style={containerStyle}>
       <h2 style={{ 
@@ -214,6 +247,20 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                     style={{ padding: '4px 6px', fontSize: '12px' }}
                   >
                     ✏️
+                  </button>
+                  <button
+                    onClick={() => handleReorderTower(Tower.towerId, 'up')}
+                    title="Move up"
+                    style={{ padding: '4px 6px', fontSize: '12px' }}
+                  >
+                    ◀
+                  </button>
+                  <button
+                    onClick={() => handleReorderTower(Tower.towerId, 'down')}
+                    title="Move down"
+                    style={{ padding: '4px 6px', fontSize: '12px' }}
+                  >
+                    ▶
                   </button>
                   <button
                     onClick={() => onDeleteTower(Tower.towerId)}
