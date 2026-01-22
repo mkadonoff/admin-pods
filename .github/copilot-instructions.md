@@ -32,11 +32,11 @@ When `POST /floors/:floorId/rings`, the endpoint automatically:
 2. Creates a Pod for each slot (slotIndex 0 to slots-1)
 3. If `radiusIndex=0`, creates an extra Pod with `slotIndex=-1` (center)
 
-This is in <a>api/src/routes/rings.ts</a>. **Do not create pods separately.**
+This is in <a href="api/src/routes/rings.ts">api/src/routes/rings.ts</a>. **Do not create pods separately.**
 
 ### Assignment Uniqueness
 
-The `(podId, entityId)` unique constraint is enforced at the DB level. The API catches `P2002` (duplicate key) errors and returns a 400. See <a>api/src/routes/assignments.ts</a>.
+The `(podId, entityId)` unique constraint is enforced at the DB level. The API catches `P2002` (duplicate key) errors and returns a 400. See <a href="api/src/routes/assignments.ts">api/src/routes/assignments.ts</a>.
 
 ## Development Patterns
 
@@ -50,11 +50,11 @@ export default function createXxxRoutes(prisma: PrismaClient) {
 }
 ```
 
-The router is exported as a default function, not directly. See <a>api/src/routes/floors.ts</a> for reference.
+The router is exported as a default function, not directly. See <a href="api/src/routes/floors.ts">api/src/routes/floors.ts</a> for reference.
 
 ### React Data Fetching
 
-Use the `api.ts` centralized axios client (<a>web/src/api.ts</a>). All API methods are grouped by resource:
+Use the `api.ts` centralized axios client (<a href="web/src/api.ts">web/src/api.ts</a>). All API methods are grouped by resource:
 
 ```typescript
 await entityAPI.list(type, q);  // GET /entities?type=X&q=Y
@@ -65,7 +65,7 @@ await podAPI.update(id, data);  // PATCH /pods/:id
 
 ### Component Structure
 
-Components are function-based with hooks. State is local unless shared across multiple screens. See <a>web/src/components/FloorManager.tsx</a> for the pattern.
+Components are function-based with hooks. State is local unless shared across multiple screens. See <a href="web/src/components/FloorManager.tsx">web/src/components/FloorManager.tsx</a> for the pattern.
 
 ## Project-Specific Conventions
 
@@ -87,7 +87,7 @@ Always regenerate after schema changes. Migrations are additive only in this MVP
 ### Port Configuration
 
 - API: `PORT` env var (default 3000)
-- Web: Hardcoded to 5173 in <a>web/vite.config.ts</a>
+- Web: Hardcoded to 5173 in <a href="web/vite.config.ts">web/vite.config.ts</a>
 - Web proxies `/api/*` requests to `http://localhost:3000`
 
 ## Build & Test Commands
@@ -120,12 +120,12 @@ npm run preview          # Preview production build
 
 | Purpose | File |
 |---------|------|
-| Db schema, relationships | <a>api/prisma/schema.prisma</a> |
-| HTTP routes | <a>api/src/routes/*.ts</a> |
-| React components | <a>web/src/components/*.tsx</a> |
-| API client | <a>web/src/api.ts</a> |
-| Server entry | <a>api/src/index.ts</a> |
-| App entry | <a>web/src/App.tsx</a> |
+| Db schema, relationships | <a href="api/prisma/schema.prisma">api/prisma/schema.prisma</a> |
+| HTTP routes | <a href="api/src/routes/">api/src/routes/*.ts</a> |
+| React components | <a href="web/src/components/">web/src/components/*.tsx</a> |
+| API client | <a href="web/src/api.ts">web/src/api.ts</a> |
+| Server entry | <a href="api/src/index.ts">api/src/index.ts</a> |
+| App entry | <a href="web/src/App.tsx">web/src/App.tsx</a> |
 
 ## Debugging Tips
 
@@ -152,7 +152,7 @@ No test framework is currently configured for the frontend. Consider adding Vite
 
 ## Code Formatting
 
-Prettier is configured (<a>.prettierrc</a>) but no format scripts exist. To format code manually:
+Prettier is configured (<a href=".prettierrc">.prettierrc</a>) but no format scripts exist. To format code manually:
 ```bash
 # Install prettier globally or use npx
 npx prettier --write "**/*.{ts,tsx,js,jsx,json,md}"
@@ -182,7 +182,7 @@ Recommended: Add format scripts to package.json files:
 
 **Frontend proxy errors:**
 - Ensure API is running before starting frontend
-- Check Vite config proxy settings in <a>web/vite.config.ts</a>
+- Check Vite config proxy settings in <a href="web/vite.config.ts">web/vite.config.ts</a>
 - Clear browser cache and restart Vite dev server
 
 **TypeScript errors after schema changes:**
