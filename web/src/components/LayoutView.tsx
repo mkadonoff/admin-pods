@@ -201,8 +201,6 @@ function PodMesh({
   onDoubleClick,
   isPresencePod = false,
   opacity = 1,
-  pod,
-  showMetadata,
 }: {
   position: [number, number, number];
   isSelected: boolean;
@@ -211,8 +209,6 @@ function PodMesh({
   onDoubleClick?: () => void;
   isPresencePod?: boolean;
   opacity?: number;
-  pod?: any;
-  showMetadata?: boolean;
 }) {
   // Corporate color palette with softer tones
   const podColor = isPresencePod
@@ -228,12 +224,6 @@ function PodMesh({
   const windowWidth = POD_RADIUS * 0.55;
   const windowHeight = POD_HEIGHT * 0.65;
   const windowOffset = POD_RADIUS * 0.8 - 0.02;
-
-  // Calculate metadata for badge
-  const podId = pod?.podId || 0;
-  const assignmentCount = pod?.assignments?.length || 0;
-  const maxCapacity = 5; // Typical pod capacity
-  const teamName = pod?.assignments?.[0]?.entity?.name?.split(' ')[0] || '';
 
   return (
     <group position={position} onClick={onClick} onDoubleClick={onDoubleClick}>
@@ -264,27 +254,6 @@ function PodMesh({
             fontWeight="bold"
           >
             MY LOCATION
-          </Text>
-        </group>
-      )}
-      {showMetadata && pod && !isPresencePod && (
-        <group position={[0, POD_HEIGHT + 0.5, 0]}>
-          <mesh>
-            <planeGeometry args={[1.8, 0.4]} />
-            <meshBasicMaterial 
-              color="#0078d4" 
-              transparent 
-              opacity={0.9}
-            />
-          </mesh>
-          <Text
-            position={[0, 0, 0.01]}
-            fontSize={0.12}
-            color="#ffffff"
-            anchorX="center"
-            anchorY="middle"
-          >
-            {`P${podId} | ${assignmentCount}/${maxCapacity}${teamName ? ' | ' + teamName : ''}`}
           </Text>
         </group>
       )}
@@ -323,7 +292,6 @@ function RingMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
-  showMetadata = false,
 }: {
   ring: Ring;
   floorY: number;
@@ -335,7 +303,6 @@ function RingMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
-  showMetadata?: boolean;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -369,8 +336,6 @@ function RingMesh({
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={presencePodId === pod.podId}
             opacity={isDimmed ? 0.2 : 1}
-            pod={pod}
-            showMetadata={showMetadata}
           />
         );
       })}
@@ -390,7 +355,6 @@ function FloorMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
-  showMetadata = false,
 }: {
   floor: Floor;
   floorIndex: number;
@@ -402,7 +366,6 @@ function FloorMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
-  showMetadata?: boolean;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
@@ -454,7 +417,6 @@ function FloorMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
-          showMetadata={showMetadata}
         />
       ))}
     </group>
@@ -472,7 +434,6 @@ function TowerMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
-  showMetadata = false,
 }: {
   Tower: Tower;
   floors: Floor[];
@@ -483,7 +444,6 @@ function TowerMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
-  showMetadata?: boolean;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
   // Calculate label position based on highest floor orderIndex
@@ -521,7 +481,6 @@ function TowerMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
-          showMetadata={showMetadata}
         />
       ))}
     </group>
@@ -561,7 +520,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
   const [cameraInitialized, setCameraInitialized] = useState(false);
   const [navigationMode, setNavigationMode] = useState(false);
-  const [cameraDistanceToCenter, setCameraDistanceToCenter] = useState<number>(15);
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -1112,9 +1070,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
 
-  // Calculate if metadata should be shown based on camera distance (LOD system)
-  const showMetadataBadges = cameraDistanceToCenter < 20;
-
   const SceneControllers: React.FC = () => {
     const { camera, gl } = useThree();
 
@@ -1289,14 +1244,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }, [gl.domElement]);
 
     useFrame((_, delta) => {
-      // Update camera distance for LOD system
-      const centerX = 0;
-      const centerZ = 0;
-      const dx = camera.position.x - centerX;
-      const dz = camera.position.z - centerZ;
-      const distance = Math.sqrt(dx * dx + dz * dz);
-      setCameraDistanceToCenter(distance);
-
       // Camera animation for smooth focus transitions
       if (cameraAnimation && !navigationMode) {
         const elapsed = Date.now() - cameraAnimation.startTime;
@@ -1624,7 +1571,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               enableZoom
               enableRotate
               minDistance={5}
-              maxDistance={50}
+              maxDistance={200}
               minPolarAngle={0}
               maxPolarAngle={Math.PI / 2}
               enableDamping
@@ -1700,7 +1647,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                         focusOnPosition(info.origin);
                       }
                     }}
-                    showMetadata={showMetadataBadges}
                   />
                 );
               })}
