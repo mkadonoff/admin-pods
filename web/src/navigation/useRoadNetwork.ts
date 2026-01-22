@@ -38,19 +38,22 @@ interface RoadNetworkResult {
 function generateHexSpiralCoords(count: number): Axial[] {
   if (count <= 0) return [];
 
-  const coords: Axial[] = [{ q: 0, r: 0 }];
+  const coords: Axial[] = [{ q: 0, r: 0 }]; // Center at index 0
   if (count === 1) return coords;
 
+  // Directions for walking AROUND a hex ring (not outward from center)
+  // Starting at (k, 0) and walking counter-clockwise
   const dirs: Axial[] = [
-    { q: 1, r: 0 },
-    { q: 1, r: -1 },
-    { q: 0, r: -1 },
-    { q: -1, r: 0 },
-    { q: -1, r: 1 },
-    { q: 0, r: 1 },
+    { q: 0, r: -1 },   // NW
+    { q: -1, r: 0 },   // W
+    { q: -1, r: 1 },   // SW
+    { q: 0, r: 1 },    // SE
+    { q: 1, r: 0 },    // E
+    { q: 1, r: -1 },   // NE
   ];
 
   for (let k = 1; coords.length < count; k++) {
+    // Start at corner (k, 0) then walk the hex ring
     let q = k;
     let r = 0;
     for (let side = 0; side < 6 && coords.length < count; side++) {
@@ -96,15 +99,19 @@ export function useRoadNetwork({
       return { roads: [], boundaries: [], towersWithPosition: [] };
     }
 
+    // Sort towers by orderIndex to ensure correct hex grid placement
+    // Tower with orderIndex 0 -> center, 1-6 -> ring 1, 7-18 -> ring 2, etc.
+    const sortedTowers = [...towers].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
     // Generate axial coordinates for each tower
-    const axialCoords = generateHexSpiralCoords(towers.length);
+    const axialCoords = generateHexSpiralCoords(sortedTowers.length);
     
     // Build tower position map
     const towerMap = new Map<string, TowerWithPosition>();
     const towersWithPosition: TowerWithPosition[] = [];
 
-    for (let idx = 0; idx < towers.length; idx++) {
-      const tower = towers[idx];
+    for (let idx = 0; idx < sortedTowers.length; idx++) {
+      const tower = sortedTowers[idx];
       const axial = axialCoords[idx];
       const worldPos = axialToWorld(axial, hexSize);
       

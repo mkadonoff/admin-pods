@@ -35,20 +35,22 @@ type Axial = { q: number; r: number };
 function generateHexSpiralCoords(count: number): Axial[] {
   if (count <= 0) return [];
 
-  const coords: Axial[] = [{ q: 0, r: 0 }];
+  const coords: Axial[] = [{ q: 0, r: 0 }]; // Center at index 0
   if (count === 1) return coords;
 
+  // Directions for walking AROUND a hex ring (not outward from center)
+  // Starting at (k, 0) and walking counter-clockwise
   const dirs: Axial[] = [
-    { q: 1, r: 0 },
-    { q: 1, r: -1 },
-    { q: 0, r: -1 },
-    { q: -1, r: 0 },
-    { q: -1, r: 1 },
-    { q: 0, r: 1 },
+    { q: 0, r: -1 },   // NW
+    { q: -1, r: 0 },   // W
+    { q: -1, r: 1 },   // SW
+    { q: 0, r: 1 },    // SE
+    { q: 1, r: 0 },    // E
+    { q: 1, r: -1 },   // NE
   ];
 
   for (let k = 1; coords.length < count; k++) {
-    // Start at (k, 0) then walk the hex ring
+    // Start at corner (k, 0) then walk the hex ring
     let q = k;
     let r = 0;
     for (let side = 0; side < 6 && coords.length < count; side++) {
@@ -604,9 +606,13 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     const positions: Record<number, TowerPosition> = {};
     if (towers.length === 0) return positions;
 
+    // Sort towers by orderIndex to ensure correct hex grid placement
+    // Tower with orderIndex 0 -> center, 1-6 -> ring 1, 7-18 -> ring 2, etc.
+    const sortedTowers = [...towers].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
     // Use a conservative uniform spacing based on the largest Tower footprint.
     let maxTowerRadiusWorld = 1;
-    for (const Tower of towers) {
+    for (const Tower of sortedTowers) {
       const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
       maxTowerRadiusWorld = Math.max(maxTowerRadiusWorld, getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE);
     }
@@ -614,10 +620,10 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     const minCenterDist = 2 * maxTowerRadiusWorld + Tower_GAP;
     const hexSize = minCenterDist / Math.sqrt(3); // adjacent center distance is sqrt(3)*size
 
-    const axialCoords = generateHexSpiralCoords(towers.length);
+    const axialCoords = generateHexSpiralCoords(sortedTowers.length);
 
-    for (let idx = 0; idx < towers.length; idx++) {
-      const Tower = towers[idx];
+    for (let idx = 0; idx < sortedTowers.length; idx++) {
+      const Tower = sortedTowers[idx];
       const { q, r } = axialCoords[idx];
       const x = hexSize * Math.sqrt(3) * (q + r / 2);
       const z = hexSize * (3 / 2) * r;
