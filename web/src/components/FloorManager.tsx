@@ -88,16 +88,54 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
     const [movedFloor] = reordered.splice(currentIndex, 1);
     reordered.splice(targetIndex, 0, movedFloor);
 
-    // Reassign sequential orderIndex values (0, 1, 2, ...) to all floors
+    // Find ground level (first floor with orderIndex >= 0)
+    const groundFloorIdx = TowerFloors.findIndex(f => f.orderIndex >= 0);
+    const basementCount = groundFloorIdx > 0 ? groundFloorIdx : 0;
+    
+    // Reassign orderIndex values preserving basement floors (negative indices)
     try {
       await Promise.all(
         reordered.map((f, index) => 
-          floorAPI.update(f.floorId, { orderIndex: index })
+          floorAPI.update(f.floorId, { orderIndex: index - basementCount })
         )
       );
       onFloorsChanged();
     } catch (error) {
       console.error('Failed to reorder floor', error);
+    }
+  };
+
+  const handleToggleBasement = async (floorId: number) => {
+    const floor = floors.find((f) => f.floorId === floorId);
+    if (!floor) return;
+
+    // Get all floors in the same Tower
+    const TowerFloors = floors
+      .filter((f) => f.towerId === floor.towerId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+
+    const isCurrentlyBasement = floor.orderIndex < 0;
+    
+    try {
+      if (isCurrentlyBasement) {
+        // Move to ground level: shift all floors with orderIndex >= 0 up by 1, set this floor to 0
+        await Promise.all(
+          TowerFloors.filter(f => f.orderIndex >= 0).map(f =>
+            floorAPI.update(f.floorId, { orderIndex: f.orderIndex + 1 })
+          )
+        );
+        await floorAPI.update(floorId, { orderIndex: 0 });
+      } else {
+        // Move to basement: set to -1, shift other basement floors down
+        const basementFloors = TowerFloors.filter(f => f.orderIndex < 0);
+        const newBasementIndex = basementFloors.length > 0 
+          ? Math.min(...basementFloors.map(f => f.orderIndex)) - 1 
+          : -1;
+        await floorAPI.update(floorId, { orderIndex: newBasementIndex });
+      }
+      onFloorsChanged();
+    } catch (error) {
+      console.error('Failed to toggle basement status', error);
     }
   };
 
@@ -275,15 +313,21 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
 
             {/* Floors list */}
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {TowerFloors.map((floor) => (
+              {TowerFloors.map((floor) => {
+                const isBasement = floor.orderIndex < 0;
+                return (
                 <li
                   key={floor.floorId}
                   style={{
                     marginBottom: '6px',
                     padding: '8px 10px',
-                    backgroundColor: selectedFloorId === floor.floorId ? 'var(--accent-light)' : 'var(--bg-surface)',
+                    backgroundColor: selectedFloorId === floor.floorId 
+                      ? 'var(--accent-light)' 
+                      : 'var(--bg-surface)',
                     borderRadius: '4px',
-                    border: selectedFloorId === floor.floorId ? '1px solid var(--accent)' : '1px solid var(--border)',
+                    border: selectedFloorId === floor.floorId 
+                      ? '1px solid var(--accent)' 
+                      : '1px solid var(--border)',
                     transition: 'all 0.15s ease',
                   }}
                 >
@@ -308,6 +352,18 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                       >
                         {floor.name}
                       </span>
+                      <button 
+                        onClick={() => handleToggleBasement(floor.floorId)} 
+                        title={isBasement ? "Move above ground" : "Move below ground"} 
+                        style={{ 
+                          padding: '2px 5px', 
+                          fontSize: '11px', 
+                          backgroundColor: isBasement ? '#8b4513' : undefined,
+                          borderRadius: '3px'
+                        }}
+                      >
+                        {isBasement ? '⬆️' : '⬇️'}
+                      </button>
                       <button onClick={() => handleEditFloor(floor.floorId, floor.name)} title="Rename" style={{ padding: '2px 5px', fontSize: '11px' }}>
                         ✏️
                       </button>
@@ -327,7 +383,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                     </div>
                   )}
                 </li>
-              ))}
+              );})}
             </ul>
 
             {/* Add floor (only for active Tower) */}

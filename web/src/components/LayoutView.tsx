@@ -486,7 +486,11 @@ function TowerMesh({
   showMetadata?: boolean;
 }) {
   const sortedFloors = [...floors].sort((a, b) => a.orderIndex - b.orderIndex);
-  const labelY = sortedFloors.length * FLOOR_SPACING + 1;
+  // Calculate label position based on highest floor orderIndex
+  const maxOrderIndex = sortedFloors.length > 0 
+    ? Math.max(...sortedFloors.map(f => f.orderIndex)) 
+    : 0;
+  const labelY = (maxOrderIndex + 1) * FLOOR_SPACING + 1;
 
   return (
     <group>
@@ -504,11 +508,11 @@ function TowerMesh({
         {Tower.name}
       </Text>
       {/* Floors */}
-      {sortedFloors.map((floor, idx) => (
+      {sortedFloors.map((floor) => (
         <FloorMesh
           key={floor.floorId}
           floor={floor}
-          floorIndex={idx}
+          floorIndex={floor.orderIndex}
           TowerX={position.x}
           TowerZ={position.z}
           selectedPodId={selectedPodId}
