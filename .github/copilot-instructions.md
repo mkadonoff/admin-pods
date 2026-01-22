@@ -177,7 +177,7 @@ Recommended: Add format scripts to package.json files:
 
 **API not responding:**
 - Check API is running on port 3000
-- Verify no port conflicts: `lsof -i :3000` (Unix) or `netstat -ano | findstr :3000` (Windows)
+- Verify no port conflicts: `lsof -i :3000` (Unix) or `netstat -ano | findstr ":3000"` (Windows)
 - Check API logs for errors
 
 **Frontend proxy errors:**
