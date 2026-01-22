@@ -33,6 +33,19 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   const [editFloorName, setEditFloorName] = useState('');
   const [editingTowerId, setEditingTowerId] = useState<number | null>(null);
   const [editTowerName, setEditTowerName] = useState('');
+  const [collapsedTowers, setCollapsedTowers] = useState<Set<number>>(new Set());
+
+  const toggleTowerCollapse = (towerId: number) => {
+    setCollapsedTowers(prev => {
+      const next = new Set(prev);
+      if (next.has(towerId)) {
+        next.delete(towerId);
+      } else {
+        next.add(towerId);
+      }
+      return next;
+    });
+  };
   const isPanelVariant = variant === 'panel';
   const containerStyle = {
     padding: '16px',
@@ -240,6 +253,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .reverse();
         const isActive = activeTowerId === Tower.towerId;
+        const isCollapsed = collapsedTowers.has(Tower.towerId);
 
         return (
           <div
@@ -254,7 +268,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
             }}
           >
             {/* Tower Header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: isCollapsed ? '0' : '10px' }}>
               {editingTowerId === Tower.towerId ? (
                 <>
                   <input
@@ -270,15 +284,19 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                 </>
               ) : (
                 <>
+                  <button
+                    onClick={() => toggleTowerCollapse(Tower.towerId)}
+                    title={isCollapsed ? "Expand floors" : "Collapse floors"}
+                    style={{ padding: '4px 6px', fontSize: '12px', marginRight: '6px' }}
+                  >
+                    {isCollapsed ? '▶' : '▼'}
+                  </button>
                   <strong
                     onClick={() => onSelectTower(Tower.towerId)}
                     style={{ flex: 1, cursor: 'pointer', color: 'var(--text)', fontSize: '12px' }}
                   >
                     {Tower.name}
                   </strong>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginRight: '8px', fontFamily: "'Consolas', monospace" }}>
-                    ({TowerFloors.length} floors)
-                  </span>
                   <button
                     onClick={() => handleEditTower(Tower.towerId, Tower.name)}
                     title="Rename"
@@ -312,6 +330,7 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
             </div>
 
             {/* Floors list */}
+            {!isCollapsed && (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {TowerFloors.map((floor) => {
                 const isBasement = floor.orderIndex < 0;
@@ -385,9 +404,10 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                 </li>
               );})}
             </ul>
+            )}
 
             {/* Add floor (only for active Tower) */}
-            {isActive && (
+            {isActive && !isCollapsed && (
               <div style={{ display: 'flex', gap: '6px', marginTop: '10px' }}>
                 <input
                   type="text"
