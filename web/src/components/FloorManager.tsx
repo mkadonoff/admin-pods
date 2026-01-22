@@ -224,11 +224,11 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                     value={editTowerName}
                     onChange={(e) => setEditTowerName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSaveTowerEdit(Tower.towerId)}
-                    style={{ flex: 1, marginRight: '5px' }}
+                    style={{ flex: 1, minWidth: 0, marginRight: '5px' }}
                     autoFocus
                   />
-                  <button onClick={() => handleSaveTowerEdit(Tower.towerId)}>✓</button>
-                  <button onClick={() => setEditingTowerId(null)}>✕</button>
+                  <button onClick={() => handleSaveTowerEdit(Tower.towerId)} style={{ flexShrink: 0 }}>✓</button>
+                  <button onClick={() => setEditingTowerId(null)} style={{ flexShrink: 0 }}>✕</button>
                 </>
               ) : (
                 <>
@@ -288,17 +288,17 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
                   }}
                 >
                   {editingFloorId === floor.floorId ? (
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                       <input
                         type="text"
                         value={editFloorName}
                         onChange={(e) => setEditFloorName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleSaveFloorEdit(floor.floorId)}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, minWidth: 0 }}
                         autoFocus
                       />
-                      <button onClick={() => handleSaveFloorEdit(floor.floorId)}>✓</button>
-                      <button onClick={() => setEditingFloorId(null)}>✕</button>
+                      <button onClick={() => handleSaveFloorEdit(floor.floorId)} style={{ flexShrink: 0 }}>✓</button>
+                      <button onClick={() => setEditingFloorId(null)} style={{ flexShrink: 0 }}>✕</button>
                     </div>
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
