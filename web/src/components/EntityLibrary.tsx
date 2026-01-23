@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { entityAPI } from '../api';
 
 interface Entity {
@@ -26,6 +26,10 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [documentDrafts, setDocumentDrafts] = useState<Record<number, string>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false);
+  const [collapsedTypes, setCollapsedTypes] = useState<Set<string> | 'all'>('all');
+  const typeInputRef = useRef<HTMLInputElement>(null);
 
   const isPanelVariant = variant === 'panel';
   const containerStyle = {
@@ -174,6 +178,58 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
     }
   };
 
+  // Get unique entity types for autocomplete
+  const existingTypes = useMemo(() => {
+    const types = new Set(entities.map((e) => e.entityType));
+    // Add common defaults if not present
+    ['Person', 'Machine', 'Document', 'Device', 'Service'].forEach((t) => types.add(t));
+    return Array.from(types).sort();
+  }, [entities]);
+
+  // Filter types for dropdown based on input
+  const filteredTypes = useMemo(() => {
+    if (!newEntityType) return existingTypes;
+    const lower = newEntityType.toLowerCase();
+    return existingTypes.filter((t) => t.toLowerCase().includes(lower));
+  }, [existingTypes, newEntityType]);
+
+  // Group entities by type
+  const entitiesByType = useMemo(() => {
+    const grouped: Record<string, Entity[]> = {};
+    entities.forEach((e) => {
+      if (!grouped[e.entityType]) {
+        grouped[e.entityType] = [];
+      }
+      grouped[e.entityType].push(e);
+    });
+    return grouped;
+  }, [entities]);
+
+  const sortedTypes = useMemo(() => Object.keys(entitiesByType).sort(), [entitiesByType]);
+
+  const toggleTypeCollapse = (type: string) => {
+    setCollapsedTypes((prev) => {
+      // If 'all' collapsed, expand just this type (collapse all others)
+      if (prev === 'all') {
+        const allTypes = new Set(sortedTypes);
+        allTypes.delete(type);
+        return allTypes;
+      }
+      const next = new Set(prev);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  };
+
+  const selectType = (type: string) => {
+    setNewEntityType(type);
+    setShowTypeDropdown(false);
+  };
+
   return (
     <div style={containerStyle}>
       <h2 style={{ 
@@ -187,61 +243,126 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         borderBottom: '1px solid var(--border)',
       }}>Entity Library</h2>
 
-      {/* Create Entity */}
+      {/* Create Entity - Collapsible */}
       <div style={{ 
         marginBottom: '10px', 
-        padding: '8px', 
         border: '1px solid var(--border)', 
         borderRadius: '4px',
         backgroundColor: 'var(--bg-elevated)',
+        overflow: 'hidden',
       }}>
-        <h3 style={{ color: 'var(--accent)', fontSize: '10px', fontWeight: 600, marginBottom: '6px', marginTop: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Add Entity</h3>
-        <input
-          type="text"
-          placeholder="Entity type (e.g., Person, Machine)"
-          value={newEntityType}
-          onChange={(e) => setNewEntityType(e.target.value)}
-          style={{ 
-            width: '100%', 
-            marginBottom: '5px', 
-            boxSizing: 'border-box',
-            backgroundColor: 'var(--bg-primary)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            padding: '5px 6px',
-            borderRadius: '3px',
-            fontSize: '11px',
-          }}
-        />
-        <input
-          type="text"
-          placeholder="Entity name"
-          value={newEntityName}
-          onChange={(e) => setNewEntityName(e.target.value)}
-          style={{ 
-            width: '100%', 
-            marginBottom: '6px', 
-            boxSizing: 'border-box',
-            backgroundColor: 'var(--bg-primary)',
-            border: '1px solid var(--border)',
-            color: 'var(--text)',
-            padding: '5px 6px',
-            borderRadius: '3px',
-            fontSize: '11px',
-          }}
-        />
-        <button 
-          onClick={handleCreateEntity} 
-          style={{ 
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          style={{
             width: '100%',
-            backgroundColor: 'var(--accent)',
-            border: '1px solid var(--accent)',
-            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '8px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: 'var(--accent)',
+            fontSize: '10px',
             fontWeight: 600,
-            padding: '5px 6px',
-            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px',
+            cursor: 'pointer',
           }}
-        >Add Entity</button>
+        >
+          <span>➕ Add Entity</span>
+          <span style={{ fontSize: '10px' }}>{showAddForm ? '▲' : '▼'}</span>
+        </button>
+        {showAddForm && (
+          <div style={{ padding: '0 8px 8px 8px' }}>
+            <div style={{ position: 'relative' }}>
+              <input
+                ref={typeInputRef}
+                type="text"
+                placeholder="Entity type (e.g., Person, Machine)"
+                value={newEntityType}
+                onChange={(e) => setNewEntityType(e.target.value)}
+                onFocus={() => setShowTypeDropdown(true)}
+                onBlur={() => setTimeout(() => setShowTypeDropdown(false), 150)}
+                style={{ 
+                  width: '100%', 
+                  marginBottom: '5px', 
+                  boxSizing: 'border-box',
+                  backgroundColor: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  padding: '5px 6px',
+                  borderRadius: '3px',
+                  fontSize: '11px',
+                }}
+              />
+              {showTypeDropdown && filteredTypes.length > 0 && (
+                <ul style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  backgroundColor: 'var(--bg-elevated)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '3px',
+                  margin: 0,
+                  padding: 0,
+                  listStyle: 'none',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                  zIndex: 10,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                }}>
+                  {filteredTypes.map((type) => (
+                    <li
+                      key={type}
+                      onMouseDown={() => selectType(type)}
+                      style={{
+                        padding: '5px 8px',
+                        fontSize: '11px',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        backgroundColor: type === newEntityType ? 'var(--accent-muted)' : 'transparent',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-primary)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = type === newEntityType ? 'var(--accent-muted)' : 'transparent')}
+                    >
+                      {type}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <input
+              type="text"
+              placeholder="Entity name"
+              value={newEntityName}
+              onChange={(e) => setNewEntityName(e.target.value)}
+              style={{ 
+                width: '100%', 
+                marginBottom: '6px', 
+                boxSizing: 'border-box',
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                padding: '5px 6px',
+                borderRadius: '3px',
+                fontSize: '11px',
+              }}
+            />
+            <button 
+              onClick={handleCreateEntity} 
+              style={{ 
+                width: '100%',
+                backgroundColor: 'var(--accent)',
+                border: '1px solid var(--accent)',
+                color: 'white',
+                fontWeight: 600,
+                padding: '5px 6px',
+                fontSize: '11px',
+              }}
+            >Add Entity</button>
+          </div>
+        )}
       </div>
 
       {/* Filter & Search */}
@@ -280,7 +401,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         }}
       />
 
-      {/* Entities List */}
+      {/* Entities List - Grouped by Type */}
       <h3 style={{ 
         color: 'var(--text-muted)', 
         fontSize: '10px', 
@@ -289,145 +410,178 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         letterSpacing: '0.5px',
         marginBottom: '6px',
       }}>Entities <span style={{ color: 'var(--accent)', fontFamily: "'Consolas', monospace" }}>({entities.length})</span></h3>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {entities.map((e) => (
-          <li
-            key={e.entityId}
-            style={{
-              marginBottom: '5px',
-              padding: '6px 8px',
-              backgroundColor: 'var(--bg-elevated)',
-              borderRadius: '3px',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {editingId === e.entityId ? (
-              <div>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    marginBottom: '5px', 
-                    boxSizing: 'border-box',
-                    backgroundColor: 'var(--bg-primary)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                    padding: '4px 6px',
-                    borderRadius: '3px',
-                    fontSize: '11px',
-                  }}
-                />
-                <button
-                  onClick={() => handleSaveEdit(e.entityId)}
-                  style={{
-                    marginRight: '4px',
-                    padding: '3px 8px',
-                    backgroundColor: 'var(--accent)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '10px',
-                    fontWeight: 600,
-                  }}
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setEditingId(null)}
-                  style={{
-                    padding: '3px 8px',
-                    backgroundColor: 'var(--bg-elevated)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '10px',
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <strong style={{ color: 'var(--text)', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1', minWidth: 0 }}>{e.displayName}</strong>
-                  <small style={{ color: 'var(--text-muted)', fontSize: '10px', whiteSpace: 'nowrap' }}>({e.entityType})</small>
-                  <button
-                    onClick={() => handleEditEntity(e.entityId, e.displayName)}
+      
+      {sortedTypes.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)', fontSize: '11px', padding: '10px', textAlign: 'center' }}>
+          No entities yet. Add one above!
+        </div>
+      ) : (
+        sortedTypes.map((type) => (
+          <div key={type} style={{ marginBottom: '8px' }}>
+            <button
+              onClick={() => toggleTypeCollapse(type)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 8px',
+                backgroundColor: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                color: 'var(--text)',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                marginBottom: (collapsedTypes === 'all' || collapsedTypes.has(type)) ? '0' : '4px',
+              }}
+            >
+              <span>{type} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>({entitiesByType[type].length})</span></span>
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{(collapsedTypes === 'all' || collapsedTypes.has(type)) ? '▶' : '▼'}</span>
+            </button>
+            {!(collapsedTypes === 'all' || collapsedTypes.has(type)) && (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, paddingLeft: '8px' }}>
+                {entitiesByType[type].map((e) => (
+                  <li
+                    key={e.entityId}
                     style={{
-                      padding: '1px 5px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
+                      marginBottom: '5px',
+                      padding: '6px 8px',
                       backgroundColor: 'var(--bg-elevated)',
-                      color: 'var(--text)',
-                      border: '1px solid var(--border)',
                       borderRadius: '3px',
-                      cursor: 'pointer',
-                      fontSize: '10px',
-                      flexShrink: 0,
-                    }}
-                    title="Edit entity"
-                    aria-label={`Edit ${e.displayName}`}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    onClick={() => handleDeleteEntity(e.entityId, e.displayName)}
-                    style={{
-                      padding: '1px 5px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: 'var(--bg-elevated)',
-                      color: 'var(--danger)',
                       border: '1px solid var(--border)',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      fontSize: '10px',
-                      flexShrink: 0,
                     }}
-                    title="Delete entity"
-                    aria-label={`Delete ${e.displayName}`}
                   >
-                    🗑️
-                  </button>
-                </div>
-                {e.entityType === 'Document' && (
-                  <div style={{ marginTop: '6px' }}>
-                    <textarea
-                      value={getDocumentDraftValue(e)}
-                      onChange={(event) => handleDocumentDraftChange(e.entityId, event.target.value)}
-                      onBlur={() => handleDocumentContentSave(e)}
-                      onKeyDown={(event) => handleDocumentKeyDown(event, e)}
-                      placeholder="Document content"
-                      style={{
-                        width: '100%',
-                        minHeight: '60px',
-                        marginTop: '5px',
-                        boxSizing: 'border-box',
-                        backgroundColor: 'var(--bg-primary)',
-                        border: '1px solid var(--border)',
-                        color: 'var(--text)',
-                        padding: '5px 6px',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        resize: 'vertical',
-                      }}
-                    />
-                    <small style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                      Saves on blur or Ctrl+S.
-                    </small>
-                  </div>
-                )}
-              </div>
+                    {editingId === e.entityId ? (
+                      <div>
+                        <input
+                          type="text"
+                          value={editName}
+                          onChange={(ev) => setEditName(ev.target.value)}
+                          style={{ 
+                            width: '100%', 
+                            marginBottom: '5px', 
+                            boxSizing: 'border-box',
+                            backgroundColor: 'var(--bg-primary)',
+                            border: '1px solid var(--border)',
+                            color: 'var(--text)',
+                            padding: '4px 6px',
+                            borderRadius: '3px',
+                            fontSize: '11px',
+                          }}
+                        />
+                        <button
+                          onClick={() => handleSaveEdit(e.entityId)}
+                          style={{
+                            marginRight: '4px',
+                            padding: '3px 8px',
+                            backgroundColor: 'var(--accent)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '10px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          style={{
+                            padding: '3px 8px',
+                            backgroundColor: 'var(--bg-elevated)',
+                            color: 'var(--text)',
+                            border: '1px solid var(--border)',
+                            borderRadius: '3px',
+                            cursor: 'pointer',
+                            fontSize: '10px',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <strong style={{ color: 'var(--text)', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1', minWidth: 0 }}>{e.displayName}</strong>
+                          <button
+                            onClick={() => handleEditEntity(e.entityId, e.displayName)}
+                            style={{
+                              padding: '1px 5px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: 'var(--bg-elevated)',
+                              color: 'var(--text)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '3px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              flexShrink: 0,
+                            }}
+                            title="Edit entity"
+                            aria-label={`Edit ${e.displayName}`}
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEntity(e.entityId, e.displayName)}
+                            style={{
+                              padding: '1px 5px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              backgroundColor: 'var(--bg-elevated)',
+                              color: 'var(--danger)',
+                              border: '1px solid var(--border)',
+                              borderRadius: '3px',
+                              cursor: 'pointer',
+                              fontSize: '10px',
+                              flexShrink: 0,
+                            }}
+                            title="Delete entity"
+                            aria-label={`Delete ${e.displayName}`}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                        {e.entityType === 'Document' && (
+                          <div style={{ marginTop: '6px' }}>
+                            <textarea
+                              value={getDocumentDraftValue(e)}
+                              onChange={(event) => handleDocumentDraftChange(e.entityId, event.target.value)}
+                              onBlur={() => handleDocumentContentSave(e)}
+                              onKeyDown={(event) => handleDocumentKeyDown(event, e)}
+                              placeholder="Document content"
+                              style={{
+                                width: '100%',
+                                minHeight: '60px',
+                                marginTop: '5px',
+                                boxSizing: 'border-box',
+                                backgroundColor: 'var(--bg-primary)',
+                                border: '1px solid var(--border)',
+                                color: 'var(--text)',
+                                padding: '5px 6px',
+                                borderRadius: '3px',
+                                fontSize: '10px',
+                                resize: 'vertical',
+                              }}
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                              Saves on blur or Ctrl+S.
+                            </small>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
             )}
-          </li>
-        ))}
-      </ul>
+          </div>
+        ))
+      )}
     </div>
   );
 };

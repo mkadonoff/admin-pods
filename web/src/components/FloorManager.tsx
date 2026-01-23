@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { floorAPI, towerAPI, Tower, Floor } from '../api';
 
 interface FloorManagerProps {
@@ -33,7 +33,16 @@ export const FloorManager: React.FC<FloorManagerProps> = ({
   const [editFloorName, setEditFloorName] = useState('');
   const [editingTowerId, setEditingTowerId] = useState<number | null>(null);
   const [editTowerName, setEditTowerName] = useState('');
-  const [collapsedTowers, setCollapsedTowers] = useState<Set<number>>(new Set());
+  const [collapsedTowers, setCollapsedTowers] = useState<Set<number>>(() => new Set());
+  const [initializedTowers, setInitializedTowers] = useState(false);
+
+  // Start with all towers collapsed
+  useEffect(() => {
+    if (!initializedTowers && towers.length > 0) {
+      setCollapsedTowers(new Set(towers.map(t => t.towerId)));
+      setInitializedTowers(true);
+    }
+  }, [towers, initializedTowers]);
 
   const toggleTowerCollapse = (towerId: number) => {
     setCollapsedTowers(prev => {
