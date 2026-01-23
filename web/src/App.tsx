@@ -217,6 +217,12 @@ function App() {
     setSelectedPodId(podId);
   };
 
+  const handleSelectFloor = (floorId: number | null) => {
+    setSelectedFloorId(floorId);
+    setSelectedPodId(null);
+    setShowPodDetails(false);
+  };
+
   const handlePodDetailsOpen = (podId: number) => {
     setSelectedPodId(podId);
     setShowPodDetails(true);
@@ -445,7 +451,7 @@ function App() {
             activeTowerId={activeTowerId}
             selectedFloorId={selectedFloorId}
             onSelectTower={setActiveTowerId}
-            onSelectFloor={setSelectedFloorId}
+            onSelectFloor={handleSelectFloor}
             onDeleteTower={handleDeleteTower}
             onRenameTower={handleRenameTower}
             onFloorsChanged={handleFloorsChanged}

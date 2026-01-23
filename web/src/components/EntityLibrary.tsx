@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { entityAPI } from '../api';
 
 interface Entity {
@@ -18,6 +18,9 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
   const [entities, setEntities] = useState<Entity[]>([]);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [debouncedFilter, setDebouncedFilter] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [newEntityType, setNewEntityType] = useState('');
   const [newEntityName, setNewEntityName] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -38,20 +41,36 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
     height: '100%',
   };
 
+  // Debounce filter and search inputs
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      setDebouncedFilter(filter);
+      setDebouncedSearch(search);
+    }, 300);
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [filter, search]);
+
   useEffect(() => {
     if (digitalTwinId) {
       loadEntities();
     } else {
       setEntities([]);
     }
-  }, [digitalTwinId, filter, search]);
+  }, [digitalTwinId, debouncedFilter, debouncedSearch]);
 
   const loadEntities = async () => {
     if (!digitalTwinId) {
       return [];
     }
     try {
-      const response = await entityAPI.list(digitalTwinId, filter || undefined, search || undefined);
+      const response = await entityAPI.list(digitalTwinId, debouncedFilter || undefined, debouncedSearch || undefined);
       setEntities(response.data);
       const nextDrafts: Record<number, string> = {};
       response.data
