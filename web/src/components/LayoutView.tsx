@@ -417,27 +417,29 @@ function FloorMesh({
       <Text
         position={[TowerX + floorRadius + 0.5, floorY + 0.7, TowerZ]}
         fontSize={0.6}
-        color="#0078d4"
+        color="#0063b1"
         anchorX="left"
         anchorY="middle"
         outlineWidth={0.08}
-        outlineColor="#ffffff"
+        outlineColor="#f0f8ff"
         fontWeight="bold"
       >
         {floor.name}
       </Text>
-      {/* Floor platform */}
+      {/* Floor platform - frosted glass look */}
       <mesh position={[TowerX, floorY - 0.1, TowerZ]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[floorRadius, 6]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.9} />
+        <meshStandardMaterial color="#e6f2ff" transparent opacity={0.85} metalness={0.1} roughness={0.3} />
       </mesh>
-      {/* Floor edge ring for visibility */}
+      {/* Floor edge ring - Azure steel accent */}
       <mesh position={[TowerX, floorY - 0.095, TowerZ]} rotation={[-Math.PI / 2, 0, 0]}>
         <ringGeometry args={[Math.max(floorRadius - 0.08, 0), floorRadius, 6]} />
         <meshStandardMaterial
-          color="#0078d4"
+          color="#0063b1"
           transparent
-          opacity={0.8}
+          opacity={0.9}
+          metalness={0.6}
+          roughness={0.3}
           polygonOffset
           polygonOffsetFactor={-1}
           polygonOffsetUnits={-1}
@@ -498,11 +500,11 @@ function TowerMesh({
       <Text
         position={[position.x, labelY, position.z]}
         fontSize={0.9}
-        color="#0078d4"
+        color="#0063b1"
         anchorX="center"
         anchorY="bottom"
         outlineWidth={0.08}
-        outlineColor="#ffffff"
+        outlineColor="#f0f8ff"
         fontWeight="bold"
       >
         {Tower.name}
@@ -1600,9 +1602,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', overflow: 'hidden' }}>
       {/* 3D View */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e8eef3' }}>
+      <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e6f2ff' }}>
         <Canvas camera={{ position: cameraPosition, fov: 50 }} style={{ width: '100%', height: '100%' }}>
-          <color attach="background" args={['#e8eef3']} />
+          <color attach="background" args={['#e6f2ff']} />
           {!navigationMode && (
             <OrbitControls
               ref={orbitControlsRef}
@@ -1621,7 +1623,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             />
           )}
           <ambientLight intensity={0.7} />
-          <hemisphereLight intensity={0.4} color="#87ceeb" groundColor="#f0f2f5" />
+          <hemisphereLight intensity={0.4} color="#b3d9ff" groundColor="#e6f2ff" />
           <directionalLight 
             position={[10, 20, 10]} 
             intensity={0.8} 
@@ -1656,7 +1658,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             <HexagonalGrid 
               size={50} 
               hexRadius={2} 
-              color="#d8e0e8" 
+              color="#b3d4e8" 
               towerPositions={TowerPositions}
               floors={floors}
             />
@@ -1707,7 +1709,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           flexDirection: 'column',
           gap: 10,
         }}>
-          <h2 style={{ fontSize: 18, margin: 0, color: '#0078d4' }}>Layout Settings</h2>
+          <h2 style={{ fontSize: 18, margin: 0, color: '#0063b1' }}>Layout Settings</h2>
           <label style={{ fontSize: 14, color: '#333' }}>
             <input 
               type="checkbox" 
@@ -1731,7 +1733,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             onClick={() => setShowSettings(false)}
             style={{
               padding: '10px 15px',
-              backgroundColor: '#0078d4',
+              backgroundColor: '#0063b1',
               color: '#ffffff',
               border: 'none',
               borderRadius: 4,
