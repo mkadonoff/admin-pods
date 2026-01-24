@@ -32,11 +32,11 @@ When `POST /floors/:floorId/rings`, the endpoint automatically:
 2. Creates a Pod for each slot (slotIndex 0 to slots-1)
 3. If `radiusIndex=0`, creates an extra Pod with `slotIndex=-1` (center)
 
-This is in [api/src/routes/rings.ts](api/src/routes/rings.ts#L20-L50). **Do not create pods separately.**
+This is in [api/src/routes/rings.ts](../api/src/routes/rings.ts). **Do not create pods separately.**
 
 ### Assignment Uniqueness
 
-The `(podId, entityId)` unique constraint is enforced at the DB level. The API catches `P2002` (duplicate key) errors and returns a 400. See [api/src/routes/assignments.ts](api/src/routes/assignments.ts#L30-L36).
+The `(podId, entityId)` unique constraint is enforced at the DB level. The API catches `P2002` (duplicate key) errors and returns a 400. See [api/src/routes/assignments.ts](../api/src/routes/assignments.ts).
 
 ## Development Patterns
 
@@ -50,11 +50,11 @@ export default function createXxxRoutes(prisma: PrismaClient) {
 }
 ```
 
-The router is exported as a default function, not directly. See [api/src/routes/floors.ts](api/src/routes/floors.ts) for reference.
+The router is exported as a default function, not directly. See [api/src/routes/floors.ts](../api/src/routes/floors.ts) for reference.
 
 ### React Data Fetching
 
-Use the `api.ts` centralized axios client ([web/src/api.ts](web/src/api.ts)). All API methods are grouped by resource:
+Use the `api.ts` centralized axios client ([web/src/api.ts](../web/src/api.ts)). All API methods are grouped by resource:
 
 ```typescript
 await entityAPI.list(type, q);  // GET /entities?type=X&q=Y
@@ -65,7 +65,7 @@ await podAPI.update(id, data);  // PATCH /pods/:id
 
 ### Component Structure
 
-Components are function-based with hooks. State is local unless shared across multiple screens. See [web/src/components/FloorManager.tsx](web/src/components/FloorManager.tsx) for the pattern.
+Components are function-based with hooks. State is local unless shared across multiple screens. See [web/src/components/FloorManager.tsx](../web/src/components/FloorManager.tsx) for the pattern.
 
 ## Project-Specific Conventions
 
@@ -87,7 +87,7 @@ Always regenerate after schema changes. Migrations are additive only in this MVP
 ### Port Configuration
 
 - API: `PORT` env var (default 3000)
-- Web: Hardcoded to 5173 in [web/vite.config.ts](web/vite.config.ts)
+- Web: Hardcoded to 5173 in [web/vite.config.ts](../web/vite.config.ts)
 - Web proxies `/api/*` requests to `http://localhost:3000`
 
 ## Build & Test Commands
@@ -120,12 +120,12 @@ npm run preview          # Preview production build
 
 | Purpose | File |
 |---------|------|
-| Db schema, relationships | [api/prisma/schema.prisma](api/prisma/schema.prisma) |
-| HTTP routes | [api/src/routes/*.ts](api/src/routes) |
-| React components | [web/src/components/*.tsx](web/src/components) |
-| API client | [web/src/api.ts](web/src/api.ts) |
-| Server entry | [api/src/index.ts](api/src/index.ts) |
-| App entry | [web/src/App.tsx](web/src/App.tsx) |
+| Db schema, relationships | [api/prisma/schema.prisma](../api/prisma/schema.prisma) |
+| HTTP routes | [api/src/routes/*.ts](../api/src/routes) |
+| React components | [web/src/components/*.tsx](../web/src/components) |
+| API client | [web/src/api.ts](../web/src/api.ts) |
+| Server entry | [api/src/index.ts](../api/src/index.ts) |
+| App entry | [web/src/App.tsx](../web/src/App.tsx) |
 
 ## Debugging Tips
 
