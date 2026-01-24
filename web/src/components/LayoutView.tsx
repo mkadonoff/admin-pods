@@ -198,10 +198,12 @@ function HumanoidSkeleton({
   position,
   scale = 1,
   color = '#0063b1',
+  faceAngle = 0,
 }: {
   position: [number, number, number];
   scale?: number;
   color?: string;
+  faceAngle?: number;
 }) {
   const segmentRadius = 0.03 * scale;
   const headRadius = 0.12 * scale;
@@ -228,7 +230,7 @@ function HumanoidSkeleton({
   const deskHeight = elbowY - limbGap; // same gap as legs to seat
   
   return (
-    <group position={position}>
+    <group position={position} rotation={[0, faceAngle, 0]}>
       {/* Desk */}
       <mesh position={[0, deskHeight, deskZ]}>
         <boxGeometry args={[deskWidth, 0.03 * scale, deskDepth]} />
@@ -328,6 +330,7 @@ function PodMesh({
   isSelected,
   hasAssignment,
   hasHumanoid = false,
+  faceAngle = 0,
   onClick,
   onDoubleClick,
   isPresencePod = false,
@@ -337,6 +340,7 @@ function PodMesh({
   isSelected: boolean;
   hasAssignment: boolean;
   hasHumanoid?: boolean;
+  faceAngle?: number;
   onClick: () => void;
   onDoubleClick?: () => void;
   isPresencePod?: boolean;
@@ -431,7 +435,7 @@ function PodMesh({
       
       {/* Humanoid skeleton figure inside pod - only when person/agent assigned */}
       {hasHumanoid && (
-        <HumanoidSkeleton position={[0, -POD_HEIGHT / 2 + 0.05, 0]} scale={0.8} color={frameColor} />
+        <HumanoidSkeleton position={[0, -POD_HEIGHT / 2 + 0.05, 0]} scale={0.8} color={frameColor} faceAngle={faceAngle} />
       )}
       
       {isPresencePod && (
@@ -491,6 +495,7 @@ function RingMesh({
           return null;
         }
         let x: number, z: number;
+        let podAngle = 0;
         if (pod.slotIndex === -1) {
           // Center pod
           x = TowerX;
@@ -499,6 +504,8 @@ function RingMesh({
           const angle = (2 * Math.PI * pod.slotIndex) / ring.slots;
           x = TowerX + radius * Math.cos(angle);
           z = TowerZ + radius * Math.sin(angle);
+          // Face inward: rotate to look toward center (opposite of outward angle)
+          podAngle = -angle - Math.PI / 2;
         }
         const hasAssignment = (pod.assignments?.length ?? 0) > 0;
         const hasHumanoid = (pod.assignments || []).some(
@@ -512,6 +519,7 @@ function RingMesh({
             isSelected={selectedPodId === pod.podId}
             hasAssignment={hasAssignment}
             hasHumanoid={hasHumanoid}
+            faceAngle={podAngle}
             onClick={() => onPodSelect(pod.podId)}
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={presencePodId === pod.podId}
