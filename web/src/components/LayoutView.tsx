@@ -193,11 +193,141 @@ function HexagonalGrid({
   );
 }
 
+// Humanoid skeleton figure sitting at desk with 6 segments (head, torso, 2 arms, 2 legs)
+function HumanoidSkeleton({
+  position,
+  scale = 1,
+  color = '#0063b1',
+}: {
+  position: [number, number, number];
+  scale?: number;
+  color?: string;
+}) {
+  const segmentRadius = 0.03 * scale;
+  const headRadius = 0.12 * scale;
+  const torsoHeight = 0.5 * scale;
+  const upperLegLength = 0.3 * scale;
+  const lowerLegLength = 0.3 * scale;
+  const upperArmLength = 0.15 * scale; // shorter arms
+  const forearmLength = 0.18 * scale; // shorter forearms
+  const shoulderWidth = 0.08 * scale; // same as leg spacing
+  
+  // Sitting position - chair/desk heights
+  const seatHeight = 0.25 * scale;
+  const limbGap = 0.05 * scale; // vertical gap between limbs and furniture
+  const deskDepth = 0.3 * scale;
+  const deskWidth = 0.5 * scale;
+  const deskZ = 0.25 * scale; // Desk position closer
+  
+  // Body positions (sitting)
+  const hipY = seatHeight + limbGap;
+  const torsoY = hipY + torsoHeight / 2;
+  const headY = torsoY + torsoHeight / 2 + headRadius * 0.8;
+  const shoulderY = torsoY + torsoHeight / 2 - 0.08 * scale; // shoulders lowered
+  const elbowY = shoulderY - upperArmLength;
+  const deskHeight = elbowY - limbGap; // same gap as legs to seat
+  
+  return (
+    <group position={position}>
+      {/* Desk */}
+      <mesh position={[0, deskHeight, deskZ]}>
+        <boxGeometry args={[deskWidth, 0.03 * scale, deskDepth]} />
+        <meshStandardMaterial color="#5a4a3a" metalness={0.2} roughness={0.8} />
+      </mesh>
+      
+      {/* Chair seat (simple) */}
+      <mesh position={[0, seatHeight, 0]}>
+        <boxGeometry args={[0.25 * scale, 0.03 * scale, 0.2 * scale]} />
+        <meshStandardMaterial color="#333333" metalness={0.3} roughness={0.7} />
+      </mesh>
+      
+      {/* Head */}
+      <mesh position={[0, headY, 0]}>
+        <sphereGeometry args={[headRadius, 12, 12]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Torso */}
+      <mesh position={[0, torsoY, 0]}>
+        <cylinderGeometry args={[segmentRadius * 1.5, segmentRadius * 1.5, torsoHeight, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Left upper arm - almost vertical, slight forward lean */}
+      {(() => {
+        const upperArmStartY = shoulderY;
+        const upperArmAngle = 0.15; // almost vertical
+        const elbowY = upperArmStartY - upperArmLength;
+        const elbowZ = 0.02 * scale; // slight forward
+        return (
+          <>
+            <mesh position={[-shoulderWidth, upperArmStartY - upperArmLength / 2, elbowZ / 2]} rotation={[upperArmAngle, 0, 0]}>
+              <cylinderGeometry args={[segmentRadius, segmentRadius, upperArmLength, 8]} />
+              <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+            </mesh>
+            {/* Left forearm - horizontal, reaching forward to keyboard */}
+            <mesh position={[-shoulderWidth, elbowY, elbowZ + forearmLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[segmentRadius, segmentRadius, forearmLength, 8]} />
+              <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+            </mesh>
+          </>
+        );
+      })()}
+      
+      {/* Right upper arm - almost vertical, slight forward lean */}
+      {(() => {
+        const upperArmStartY = shoulderY;
+        const upperArmAngle = 0.15; // almost vertical
+        const elbowY = upperArmStartY - upperArmLength;
+        const elbowZ = 0.02 * scale; // slight forward
+        return (
+          <>
+            <mesh position={[shoulderWidth, upperArmStartY - upperArmLength / 2, elbowZ / 2]} rotation={[upperArmAngle, 0, 0]}>
+              <cylinderGeometry args={[segmentRadius, segmentRadius, upperArmLength, 8]} />
+              <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+            </mesh>
+            {/* Right forearm - horizontal, reaching forward to keyboard */}
+            <mesh position={[shoulderWidth, elbowY, elbowZ + forearmLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[segmentRadius, segmentRadius, forearmLength, 8]} />
+              <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+            </mesh>
+          </>
+        );
+      })()}
+      
+      {/* Left upper leg - horizontal (sitting) */}
+      <mesh position={[-0.08 * scale, hipY, upperLegLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[segmentRadius, segmentRadius, upperLegLength, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Left lower leg - vertical (sitting) */}
+      <mesh position={[-0.08 * scale, hipY / 2, upperLegLength]}>
+        <cylinderGeometry args={[segmentRadius, segmentRadius, lowerLegLength, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Right upper leg - horizontal (sitting) */}
+      <mesh position={[0.08 * scale, hipY, upperLegLength / 2]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[segmentRadius, segmentRadius, upperLegLength, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+      
+      {/* Right lower leg - vertical (sitting) */}
+      <mesh position={[0.08 * scale, hipY / 2, upperLegLength]}>
+        <cylinderGeometry args={[segmentRadius, segmentRadius, lowerLegLength, 8]} />
+        <meshStandardMaterial color={color} metalness={0.6} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
+
 // 3D Pod component with glass and steel frame
 function PodMesh({
   position,
   isSelected,
   hasAssignment,
+  hasHumanoid = false,
   onClick,
   onDoubleClick,
   isPresencePod = false,
@@ -206,6 +336,7 @@ function PodMesh({
   position: [number, number, number];
   isSelected: boolean;
   hasAssignment: boolean;
+  hasHumanoid?: boolean;
   onClick: () => void;
   onDoubleClick?: () => void;
   isPresencePod?: boolean;
@@ -298,6 +429,11 @@ function PodMesh({
         );
       })}
       
+      {/* Humanoid skeleton figure inside pod - only when person/agent assigned */}
+      {hasHumanoid && (
+        <HumanoidSkeleton position={[0, -POD_HEIGHT / 2 + 0.05, 0]} scale={0.8} color={frameColor} />
+      )}
+      
       {isPresencePod && (
         <group position={[0, POD_HEIGHT * 0.9, 0]}>
           <mesh>
@@ -365,6 +501,9 @@ function RingMesh({
           z = TowerZ + radius * Math.sin(angle);
         }
         const hasAssignment = (pod.assignments?.length ?? 0) > 0;
+        const hasHumanoid = (pod.assignments || []).some(
+          (a) => a.entity?.entityType?.toLowerCase() === 'person' || a.entity?.entityType?.toLowerCase() === 'agent'
+        );
         const isDimmed = dimPodId === pod.podId;
         return (
           <PodMesh
@@ -372,6 +511,7 @@ function RingMesh({
             position={[x, floorY + POD_HEIGHT / 2, z]}
             isSelected={selectedPodId === pod.podId}
             hasAssignment={hasAssignment}
+            hasHumanoid={hasHumanoid}
             onClick={() => onPodSelect(pod.podId)}
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={presencePodId === pod.podId}
@@ -1618,6 +1758,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               maxPolarAngle={Math.PI / 2}
               enableDamping
               dampingFactor={0.15}
+              rotateSpeed={0.35}
+              panSpeed={0.5}
+              zoomSpeed={0.7}
               autoRotate={settings.autoRotate}
               autoRotateSpeed={0.5}
             />
