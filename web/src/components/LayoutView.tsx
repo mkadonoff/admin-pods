@@ -3,6 +3,7 @@ import { Tower, Floor, Ring } from '../api';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
+import * as THREE from 'three';
 import {
   Vec3 as NavVec3,
   NavigationState,
@@ -192,7 +193,7 @@ function HexagonalGrid({
   );
 }
 
-// 3D Pod component with corporate materials
+// 3D Pod component with glass and steel frame
 function PodMesh({
   position,
   isSelected,
@@ -210,35 +211,93 @@ function PodMesh({
   isPresencePod?: boolean;
   opacity?: number;
 }) {
-  // Corporate color palette with softer tones
-  const podColor = isPresencePod
-    ? '#6264a7' // Professional Teams purple instead of magenta
-    : isSelected
-      ? '#ffb900'
-      : hasAssignment
-        ? '#2d8632' // Softer green for assigned pods
-        : '#0078d4';
+  // Accent color for the steel frame - Azure-themed metallic blue
+  const frameColor = '#0063b1'; // Dark Azure blue steel
   
-  const windowColor = '#ffffff';
-  const windowCount = 6;
-  const windowWidth = POD_RADIUS * 0.55;
-  const windowHeight = POD_HEIGHT * 0.65;
-  const windowOffset = POD_RADIUS * 0.8 - 0.02;
+  // Glass tint based on pod state
+  const glassTint = isPresencePod
+    ? '#9999dd' // Purple tint
+    : isSelected
+      ? '#ffdd88' // Warm yellow tint
+      : hasAssignment
+        ? '#99ddaa' // Green tint
+        : '#aaccee'; // Cool blue tint
+  
+  const podRadius = POD_RADIUS * 0.8;
+  const frameThickness = 0.025;
+  const strutCount = 6;
 
   return (
     <group position={position} onClick={onClick} onDoubleClick={onDoubleClick}>
-      <mesh castShadow receiveShadow>
-        <cylinderGeometry args={[POD_RADIUS * 0.8, POD_RADIUS * 0.8, POD_HEIGHT, 6]} />
+      {/* Glass walls - fully transparent cylinder */}
+      <mesh>
+        <cylinderGeometry args={[podRadius, podRadius, POD_HEIGHT, 6, 1, true]} />
         <meshStandardMaterial 
-          color={podColor}
-          transparent={opacity < 1} 
-          opacity={opacity}
-          metalness={0.3}
-          roughness={0.7}
-          emissive={isSelected ? podColor : '#000000'}
-          emissiveIntensity={isSelected ? 0.2 : 0}
+          color={glassTint}
+          transparent
+          opacity={0.2 * opacity}
+          metalness={0.9}
+          roughness={0.05}
+          side={THREE.DoubleSide}
+          envMapIntensity={1}
         />
       </mesh>
+      
+      {/* Glass roof */}
+      <mesh position={[0, POD_HEIGHT / 2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[podRadius - frameThickness, 6]} />
+        <meshStandardMaterial 
+          color={glassTint}
+          transparent
+          opacity={0.25 * opacity}
+          metalness={0.9}
+          roughness={0.05}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      
+      {/* Interior floor */}
+      <mesh position={[0, -POD_HEIGHT / 2 + 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[podRadius * 0.95, 6]} />
+        <meshStandardMaterial 
+          color="#e8e8e8"
+          metalness={0.2}
+          roughness={0.8}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      
+      {/* Bottom steel frame ring */}
+      <mesh position={[0, -POD_HEIGHT / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[podRadius, frameThickness, 8, 6]} />
+        <meshStandardMaterial color={frameColor} metalness={0.8} roughness={0.3} />
+      </mesh>
+      
+      {/* Top steel frame ring */}
+      <mesh position={[0, POD_HEIGHT / 2, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[podRadius, frameThickness, 8, 6]} />
+        <meshStandardMaterial color={frameColor} metalness={0.8} roughness={0.3} />
+      </mesh>
+      
+      {/* Middle steel frame ring */}
+      <mesh position={[0, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[podRadius + 0.005, frameThickness * 0.7, 8, 6]} />
+        <meshStandardMaterial color={frameColor} metalness={0.8} roughness={0.3} />
+      </mesh>
+      
+      {/* Vertical steel struts at each hex corner */}
+      {Array.from({ length: strutCount }).map((_, idx) => {
+        const angle = (idx / strutCount) * Math.PI * 2 + Math.PI / strutCount;
+        const x = Math.sin(angle) * podRadius;
+        const z = Math.cos(angle) * podRadius;
+        return (
+          <mesh key={idx} position={[x, 0, z]}>
+            <cylinderGeometry args={[frameThickness, frameThickness, POD_HEIGHT, 8]} />
+            <meshStandardMaterial color={frameColor} metalness={0.8} roughness={0.3} />
+          </mesh>
+        );
+      })}
+      
       {isPresencePod && (
         <group position={[0, POD_HEIGHT * 0.9, 0]}>
           <mesh>
@@ -257,25 +316,6 @@ function PodMesh({
           </Text>
         </group>
       )}
-      {Array.from({ length: windowCount }).map((_, idx) => {
-        const angle = (idx / windowCount) * Math.PI * 2 + Math.PI / windowCount;
-        const x = Math.sin(angle) * windowOffset;
-        const z = Math.cos(angle) * windowOffset;
-        return (
-          <mesh key={idx} position={[x, 0, z]} rotation={[0, angle, 0]}>
-            <planeGeometry args={[windowWidth, windowHeight]} />
-            <meshStandardMaterial
-              color={windowColor}
-              transparent
-              opacity={0.35 * opacity}
-              metalness={0.1}
-              roughness={0.2}
-              emissive={windowColor}
-              emissiveIntensity={0.05}
-            />
-          </mesh>
-        );
-      })}
     </group>
   );
 }
