@@ -4,21 +4,11 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Bounds } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import {
-  Vec3 as NavVec3,
-  NavigationState,
-  DEFAULT_NAVIGATION_STATE,
-  SPEED_VALUES,
-  SpeedLevel,
-  CameraHeight,
-  NavAction,
-  NAV_KEY_BINDINGS,
-  parabolicLerp,
-  TowerBoundary,
+  ViewPreset,
+  VIEW_PRESET_KEYS,
+  lerpVec3,
 } from '../navigation';
-import { useRoadNetwork, findClosestRoad, getRoadPosition, getConnectedRoads } from '../navigation';
-import { RoadNetwork } from '../navigation';
 import {
-  POD_RADIUS,
   POD_HEIGHT,
   FLOOR_SPACING,
   FLOOR_RADIUS_SCALE,
@@ -45,16 +35,15 @@ interface LayoutViewProps {
   presencePodId?: number | null;
   processRequest?: { podId: number; nonce: number } | null;
   onRequestProcessSelected?: () => void;
-  /** Request to focus camera on selected pod */
   focusRequest?: { nonce: number } | null;
-  /** Callback when navigation state changes - passes state and action handler for HUD rendering */
-  onNavigationStateChange?: (state: NavigationState | null, handleAction: ((action: NavAction) => void) | null) => void;
+  /** Whether the user is in lobby mode (no presence pod set) */
+  lobbyMode?: boolean;
 }
 
 export const LayoutView: React.FC<LayoutViewProps> = ({
   towers,
   floors,
-  activeTowerId: _activeTowerId,
+  activeTowerId,
   selectedFloorId: _selectedFloorId,
   selectedPodId,
   onPodSelect,
@@ -64,11 +53,12 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   processRequest,
   onRequestProcessSelected,
   focusRequest,
-  onNavigationStateChange,
+  lobbyMode = false,
 }) => {
-  const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
+  const [cameraPosition, setCameraPosition] = useState<Vec3>(INITIAL_CAMERA_POSITION);
+  const [cameraTarget, setCameraTarget] = useState<Vec3>([0, 0, 0]);
   const [cameraInitialized, setCameraInitialized] = useState(false);
-  const [navigationMode, setNavigationMode] = useState(false);
+  const [currentPreset, setCurrentPreset] = useState<ViewPreset>('birds-eye');
 
   // Settings state
   const [showSettings, setShowSettings] = useState(false);
@@ -77,6 +67,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     showFloorGrid: false,
   });
 
+  // Workflow animation state (for "process pod" feature)
   type Segment = { from: Vec3; to: Vec3; durationSec: number };
   type WorkflowRun = {
     podId: number;
@@ -87,36 +78,27 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     position: Vec3;
     active: boolean;
   };
-
   const [workflow, setWorkflow] = useState<WorkflowRun | null>(null);
 
   // Camera animation state for smooth focus transitions
   const [cameraAnimation, setCameraAnimation] = useState<{
     from: Vec3;
     to: Vec3;
+    targetFrom: Vec3;
+    targetTo: Vec3;
     startTime: number;
     duration: number;
   } | null>(null);
-  const [previousCameraPosition, setPreviousCameraPosition] = useState<Vec3 | null>(null);
-
-  const navStateRef = useRef({
-    position: INITIAL_CAMERA_POSITION as Vec3,
-    yawStep: 0,
-    pitchStep: 0,
-  });
 
   const orbitControlsRef = useRef<OrbitControlsImpl>(null);
 
-  // Place towers in a hexagonal (honeycomb) grid instead of a single line.
+  // Place towers in a hexagonal (honeycomb) grid
   const TowerPositions = useMemo(() => {
     const positions: Record<number, TowerPosition> = {};
     if (towers.length === 0) return positions;
 
-    // Sort towers by orderIndex to ensure correct hex grid placement
-    // Tower with orderIndex 0 -> center, 1-6 -> ring 1, 7-18 -> ring 2, etc.
     const sortedTowers = [...towers].sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
 
-    // Use a conservative uniform spacing based on the largest Tower footprint.
     let maxTowerRadiusWorld = 1;
     for (const Tower of sortedTowers) {
       const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
@@ -124,8 +106,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }
 
     const minCenterDist = 2 * maxTowerRadiusWorld + TOWER_GAP;
-    const hexSize = minCenterDist / Math.sqrt(3); // adjacent center distance is sqrt(3)*size
-
+    const hexSize = minCenterDist / Math.sqrt(3);
     const axialCoords = generateHexSpiralCoords(sortedTowers.length);
 
     for (let idx = 0; idx < sortedTowers.length; idx++) {
@@ -139,35 +120,35 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     return positions;
   }, [towers, floors]);
 
-  // Calculate hexSize for road network (same formula as TowerPositions)
-  const hexSize = useMemo(() => {
-    if (towers.length === 0) return 1;
-    let maxTowerRadiusWorld = 1;
-    for (const tower of towers) {
-      const towerFloors = floors.filter((f) => f.towerId === tower.towerId);
-      maxTowerRadiusWorld = Math.max(maxTowerRadiusWorld, getTowerMaxRadius(towerFloors) * FLOOR_RADIUS_SCALE);
+  // Scene bounds for view presets
+  const sceneBounds = useMemo(() => {
+    if (towers.length === 0) {
+      return { centerX: 0, centerZ: 0, extent: 20, maxFloors: 1 };
     }
-    const minCenterDist = 2 * maxTowerRadiusWorld + TOWER_GAP;
-    return minCenterDist / Math.sqrt(3);
-  }, [towers, floors]);
 
-  // Road network for pod navigation
-  const { roads, boundaries } = useRoadNetwork({
-    towers,
-    floors,
-    hexSize,
-    floorRadiusScale: FLOOR_RADIUS_SCALE,
-    floorSpacing: FLOOR_SPACING,
-  });
+    let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    let maxFloors = 1;
 
-  // Pod navigation state
-  const [podNavState, setPodNavState] = useState<NavigationState>({
-    ...DEFAULT_NAVIGATION_STATE,
-  });
-  const podNavStateRef = useRef<NavigationState>(podNavState);
-  podNavStateRef.current = podNavState;
+    for (const tower of towers) {
+      const pos = TowerPositions[tower.towerId] ?? { x: 0, z: 0 };
+      const towerFloors = floors.filter((f) => f.towerId === tower.towerId);
+      maxFloors = Math.max(maxFloors, towerFloors.length || 1);
+      const radiusWorld = getTowerMaxRadius(towerFloors) * FLOOR_RADIUS_SCALE;
+      minX = Math.min(minX, pos.x - radiusWorld);
+      maxX = Math.max(maxX, pos.x + radiusWorld);
+      minZ = Math.min(minZ, pos.z - radiusWorld);
+      maxZ = Math.max(maxZ, pos.z + radiusWorld);
+    }
 
-  // Get presence pod position for starting navigation
+    return {
+      centerX: (minX + maxX) / 2,
+      centerZ: (minZ + maxZ) / 2,
+      extent: Math.max(maxX - minX, maxZ - minZ),
+      maxFloors,
+    };
+  }, [towers, floors, TowerPositions]);
+
+  // Get presence pod position
   const presencePodInfo = useMemo<{ position: Vec3; towerId: number; floorIndex: number } | null>(() => {
     if (!presencePodId) return null;
     for (const floor of floors) {
@@ -202,50 +183,118 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     return null;
   }, [presencePodId, floors, TowerPositions]);
 
-  // Backwards-compatible alias
-  const presencePodPosition = presencePodInfo?.position ?? null;
-
-  // Camera position based on towers
-  const idealCameraPosition = useMemo<[number, number, number]>(() => {
-    if (towers.length === 0) return INITIAL_CAMERA_POSITION;
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minZ = Infinity;
-    let maxZ = -Infinity;
-
-    let maxFloors = 1;
-    for (const Tower of towers) {
-      const pos = TowerPositions[Tower.towerId] ?? { x: 0, z: 0 };
-      const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
-      maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
-      const radiusWorld = getTowerMaxRadius(TowerFloors) * FLOOR_RADIUS_SCALE;
-      minX = Math.min(minX, pos.x - radiusWorld);
-      maxX = Math.max(maxX, pos.x + radiusWorld);
-      minZ = Math.min(minZ, pos.z - radiusWorld);
-      maxZ = Math.max(maxZ, pos.z + radiusWorld);
+  // Compute camera position for each view preset
+  const getPresetCamera = useCallback((preset: ViewPreset): { position: Vec3; target: Vec3 } => {
+    const { centerX, centerZ, extent, maxFloors } = sceneBounds;
+    
+    switch (preset) {
+      case 'first-person': {
+        if (!presencePodInfo) {
+          // Fallback to birds-eye if no presence
+          return getPresetCamera('birds-eye');
+        }
+        // Inside pod at eye level (head height of humanoid)
+        const eyeHeight = POD_HEIGHT * 0.7;
+        const pos: Vec3 = [
+          presencePodInfo.position[0],
+          presencePodInfo.position[1] - POD_HEIGHT / 2 + eyeHeight,
+          presencePodInfo.position[2],
+        ];
+        // Look forward (toward center of scene)
+        const target: Vec3 = [centerX, pos[1], centerZ];
+        return { position: pos, target };
+      }
+      
+      case 'birds-eye': {
+        // High above, looking down at all towers
+        const height = maxFloors * FLOOR_SPACING + extent * 0.8 + 20;
+        const pos: Vec3 = [centerX, height, centerZ + extent * 0.3];
+        const target: Vec3 = [centerX, 0, centerZ];
+        return { position: pos, target };
+      }
+      
+      case 'tower-focus': {
+        // Focus on active tower (or presence tower, or first tower)
+        let targetTowerId = activeTowerId;
+        if (!targetTowerId && presencePodInfo) {
+          targetTowerId = presencePodInfo.towerId;
+        }
+        if (!targetTowerId && towers.length > 0) {
+          targetTowerId = towers[0].towerId;
+        }
+        
+        const towerPos = targetTowerId ? TowerPositions[targetTowerId] : { x: centerX, z: centerZ };
+        const towerFloors = floors.filter(f => f.towerId === targetTowerId);
+        const towerHeight = (towerFloors.length || 1) * FLOOR_SPACING;
+        
+        const pos: Vec3 = [
+          (towerPos?.x ?? centerX) + 15,
+          towerHeight + 10,
+          (towerPos?.z ?? centerZ) + 15,
+        ];
+        const target: Vec3 = [towerPos?.x ?? centerX, towerHeight / 2, towerPos?.z ?? centerZ];
+        return { position: pos, target };
+      }
+      
+      case 'floor-slice': {
+        // Side view showing selected floor or ground floor
+        const floorY = presencePodInfo ? presencePodInfo.floorIndex * FLOOR_SPACING : 0;
+        const pos: Vec3 = [centerX + extent + 10, floorY + POD_HEIGHT / 2, centerZ];
+        const target: Vec3 = [centerX, floorY + POD_HEIGHT / 2, centerZ];
+        return { position: pos, target };
+      }
+      
+      default:
+        return { position: INITIAL_CAMERA_POSITION, target: [0, 0, 0] };
     }
+  }, [sceneBounds, presencePodInfo, activeTowerId, towers, floors, TowerPositions]);
 
-    const centerX = (minX + maxX) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const extent = Math.max(maxX - minX, maxZ - minZ);
+  // Animate camera to a new position
+  const animateCameraTo = useCallback((position: Vec3, target: Vec3, duration = 800) => {
+    setCameraAnimation({
+      from: cameraPosition,
+      to: position,
+      targetFrom: cameraTarget,
+      targetTo: target,
+      startTime: Date.now(),
+      duration,
+    });
+  }, [cameraPosition, cameraTarget]);
 
-    // Pull the camera back along +Z to fit the entire layout.
-    return [centerX, maxFloors * FLOOR_SPACING, centerZ + extent * 0.9 + 15];
-  }, [towers, floors, TowerPositions]);
+  // Switch to a view preset
+  const switchToPreset = useCallback((preset: ViewPreset) => {
+    const { position, target } = getPresetCamera(preset);
+    setCurrentPreset(preset);
+    animateCameraTo(position, target);
+  }, [getPresetCamera, animateCameraTo]);
 
+  // Initialize camera on load
   useEffect(() => {
     if (towers.length === 0) {
       setCameraPosition(INITIAL_CAMERA_POSITION);
+      setCameraTarget([0, 0, 0]);
       setCameraInitialized(false);
       return;
     }
     if (!cameraInitialized) {
-      setCameraPosition(idealCameraPosition);
+      // Start in first-person if we have a presence pod, otherwise birds-eye (lobby)
+      const initialPreset: ViewPreset = lobbyMode ? 'birds-eye' : 'first-person';
+      const { position, target } = getPresetCamera(initialPreset);
+      setCameraPosition(position);
+      setCameraTarget(target);
+      setCurrentPreset(initialPreset);
       setCameraInitialized(true);
     }
-  }, [towers.length, idealCameraPosition, cameraInitialized]);
+  }, [towers.length, cameraInitialized, getPresetCamera, lobbyMode]);
 
+  // When presence pod becomes available, switch to first-person
+  useEffect(() => {
+    if (presencePodInfo && currentPreset === 'birds-eye' && !lobbyMode) {
+      switchToPreset('first-person');
+    }
+  }, [presencePodInfo, currentPreset, lobbyMode, switchToPreset]);
+
+  // Find pod scene info helper
   const findPodSceneInfo = useCallback(
     (podId: number): { origin: Vec3; TowerX: number; TowerZ: number } | null => {
       for (const floor of floors) {
@@ -253,27 +302,23 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           for (const pod of ring.pods || []) {
             if (pod.podId !== podId) continue;
             const TowerPos = TowerPositions[floor.towerId] ?? { x: 0, z: 0 };
-            const TowerX = TowerPos.x;
-            const TowerZ = TowerPos.z;
             const floorsInTower = floors.filter((f) => f.towerId === floor.towerId);
             const sortedFloors = [...floorsInTower].sort((a, b) => a.orderIndex - b.orderIndex);
             const floorIndex = sortedFloors.findIndex((f) => f.floorId === floor.floorId);
-            const safeFloorIndex = floorIndex >= 0 ? floorIndex : 0;
-            const floorY = safeFloorIndex * FLOOR_SPACING;
+            const floorY = (floorIndex >= 0 ? floorIndex : 0) * FLOOR_SPACING;
 
             const radius = ring.radiusIndex * 2;
-            let x: number;
-            let z: number;
+            let x: number, z: number;
             if (pod.slotIndex === -1) {
-              x = TowerX;
-              z = TowerZ;
+              x = TowerPos.x;
+              z = TowerPos.z;
             } else {
               const angle = (2 * Math.PI * pod.slotIndex) / ring.slots;
-              x = TowerX + radius * Math.cos(angle);
-              z = TowerZ + radius * Math.sin(angle);
+              x = TowerPos.x + radius * Math.cos(angle);
+              z = TowerPos.z + radius * Math.sin(angle);
             }
 
-            return { origin: [x, floorY + POD_HEIGHT / 2, z], TowerX, TowerZ };
+            return { origin: [x, floorY + POD_HEIGHT / 2, z], TowerX: TowerPos.x, TowerZ: TowerPos.z };
           }
         }
       }
@@ -282,44 +327,41 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     [floors, TowerPositions],
   );
 
-  // Smooth camera focus with easing
-  const focusOnPosition = useCallback((targetPos: Vec3, distance: number = 10) => {
-    setPreviousCameraPosition(cameraPosition);
-    const offset: Vec3 = [0, distance * 0.4, distance * 0.8];
+  // Focus on a specific pod
+  const focusOnPod = useCallback((podId: number) => {
+    const info = findPodSceneInfo(podId);
+    if (!info) return;
+    
+    const distance = 10;
+    const offset: Vec3 = [distance * 0.6, distance * 0.4, distance * 0.8];
     const newPos: Vec3 = [
-      targetPos[0] + offset[0],
-      targetPos[1] + offset[1],
-      targetPos[2] + offset[2],
+      info.origin[0] + offset[0],
+      info.origin[1] + offset[1],
+      info.origin[2] + offset[2],
     ];
-    setCameraAnimation({
-      from: cameraPosition,
-      to: newPos,
-      startTime: Date.now(),
-      duration: 800, // ms
-    });
-  }, [cameraPosition]);
+    animateCameraTo(newPos, info.origin);
+  }, [findPodSceneInfo, animateCameraTo]);
 
+  // Handle focus request
+  useEffect(() => {
+    if (!focusRequest || !selectedPodId) return;
+    focusOnPod(selectedPodId);
+  }, [focusRequest?.nonce]);
+
+  // Layout extents for workflow animation
   const layoutExtents = useMemo(() => {
-    if (towers.length === 0) {
-      return { zOutside: 10, maxFloors: 1 };
-    }
-
+    const { maxFloors } = sceneBounds;
     let maxRadiusIndexPlusOne = 1;
-    let maxFloors = 1;
-
-    for (const Tower of towers) {
-      const TowerFloors = floors.filter((f) => f.towerId === Tower.towerId);
-      maxFloors = Math.max(maxFloors, TowerFloors.length || 1);
-      const maxRadius = getTowerMaxRadius(TowerFloors);
-      maxRadiusIndexPlusOne = Math.max(maxRadiusIndexPlusOne, maxRadius);
+    for (const tower of towers) {
+      const towerFloors = floors.filter((f) => f.towerId === tower.towerId);
+      maxRadiusIndexPlusOne = Math.max(maxRadiusIndexPlusOne, getTowerMaxRadius(towerFloors));
     }
-
     const maxRingRadius = (maxRadiusIndexPlusOne - 1) * 2;
     const margin = 6;
-    const zOutside = maxRingRadius + margin;
-    return { zOutside, maxFloors };
-  }, [towers, floors, TowerPositions]);
+    return { zOutside: maxRingRadius + margin, maxFloors };
+  }, [towers, floors, sceneBounds]);
 
+  // Workflow animation (process pod feature)
   const startWorkflow = useCallback(
     (podId: number) => {
       const info = findPodSceneInfo(podId);
@@ -332,7 +374,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       const exitY = maxFloors * FLOOR_SPACING + POD_HEIGHT / 2;
       const belowY = -FLOOR_SPACING + POD_HEIGHT / 2;
 
-      // "radius = 0" means the ring center position for this Tower.
       const centerOnLevel: Vec3 = [TowerX, origin[1], TowerZ];
       const topAboveHighest: Vec3 = [TowerX, exitY, TowerZ];
       const outsideAtTop: Vec3 = [TowerX, exitY, TowerZ + zOutside];
@@ -350,14 +391,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       };
 
       const waypoints: Vec3[] = [
-        origin,
-        centerOnLevel,
-        topAboveHighest,
-        outsideAtTop,
-        outsideBelow,
-        centerBelow,
-        centerBackAtStartLevel,
-        origin,
+        origin, centerOnLevel, topAboveHighest, outsideAtTop,
+        outsideBelow, centerBelow, centerBackAtStartLevel, origin,
       ];
       const segments: Segment[] = waypoints.slice(0, -1).map((from, idx) => {
         const to = waypoints[idx + 1];
@@ -377,453 +412,69 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     [findPodSceneInfo, layoutExtents],
   );
 
+  // Process request handler
   useEffect(() => {
     if (!processRequest) return;
     startWorkflow(processRequest.podId);
   }, [processRequest?.nonce]);
 
-  // Handle focus request - zoom camera to selected pod
-  useEffect(() => {
-    if (!focusRequest || !selectedPodId) return;
-    const info = findPodSceneInfo(selectedPodId);
-    if (info) {
-      focusOnPosition(info.origin, 8);
-    }
-  }, [focusRequest?.nonce]);
-
-  // Pod navigation action handler
-  const handlePodNavAction = useCallback((action: NavAction) => {
-    const state = podNavStateRef.current;
-    
-    switch (action) {
-      case 'toggle-nav':
-        if (state.active) {
-          // Exit pod navigation
-          setPodNavState(s => ({ ...s, active: false }));
-          setNavigationMode(false);
-        } else if (presencePodInfo) {
-          // Enter pod navigation from presence pod
-          // Start inside the tower at the presence pod's floor
-          setPodNavState({
-            ...DEFAULT_NAVIGATION_STATE,
-            active: true,
-            position: presencePodInfo.position as NavVec3,
-            inTowerId: presencePodInfo.towerId,
-            currentFloor: presencePodInfo.floorIndex,
-            currentRoad: null,
-            roadProgress: 0,
-          });
-          setNavigationMode(true);
-        }
-        break;
-        
-      case 'exit-nav':
-        setPodNavState(s => ({ ...s, active: false }));
-        setNavigationMode(false);
-        break;
-        
-      case 'speed-up':
-        if (state.verticalMode === 'grounded') {
-          setPodNavState(s => ({ ...s, speed: Math.min(5, s.speed + 1) as SpeedLevel }));
-        }
-        break;
-        
-      case 'speed-down':
-        if (state.verticalMode === 'grounded') {
-          setPodNavState(s => ({ ...s, speed: Math.max(0, s.speed - 1) as SpeedLevel }));
-        }
-        break;
-        
-      case 'rotate-left':
-        setPodNavState(s => {
-          const newRot = ((s.podRotation - 1 + 6) % 6) as 0 | 1 | 2 | 3 | 4 | 5;
-          return { ...s, podRotation: newRot, movementDirection: (newRot / 6) * Math.PI * 2 };
-        });
-        break;
-        
-      case 'rotate-right':
-        setPodNavState(s => {
-          const newRot = ((s.podRotation + 1) % 6) as 0 | 1 | 2 | 3 | 4 | 5;
-          return { ...s, podRotation: newRot, movementDirection: (newRot / 6) * Math.PI * 2 };
-        });
-        break;
-        
-      case 'pan-left':
-        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan - 15 + 360) % 360 }));
-        break;
-        
-      case 'pan-right':
-        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan + 15) % 360 }));
-        break;
-        
-      case 'pan-left-fine':
-        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan - 1 + 360) % 360 }));
-        break;
-        
-      case 'pan-right-fine':
-        setPodNavState(s => ({ ...s, cameraPan: (s.cameraPan + 1) % 360 }));
-        break;
-        
-      case 'tilt-up':
-        setPodNavState(s => ({ ...s, cameraTilt: Math.min(180, s.cameraTilt + 5) }));
-        break;
-        
-      case 'tilt-down':
-        setPodNavState(s => ({ ...s, cameraTilt: Math.max(0, s.cameraTilt - 5) }));
-        break;
-        
-      case 'ascend':
-        if (state.inTowerId !== null) {
-          const boundary = boundaries.find(b => b.towerId === state.inTowerId);
-          if (boundary) {
-            const maxFloor = Math.floor(boundary.maxFloorY / FLOOR_SPACING);
-            if (state.currentFloor >= maxFloor) {
-              // At top - trigger ejection
-              const connectedRoads = getConnectedRoads(state.inTowerId, roads);
-              let ejectionEnd: NavVec3 = [state.position[0], 0, state.position[2] + 10];
-              if (connectedRoads.length > 0) {
-                const targetRoad = connectedRoads[Math.floor(Math.random() * connectedRoads.length)];
-                const landPos = getRoadPosition(targetRoad, 0.5);
-                ejectionEnd = landPos;
-              }
-              setPodNavState(s => ({
-                ...s,
-                verticalMode: 'ejected',
-                ejectionProgress: 0,
-                ejectionStart: [...s.position] as NavVec3,
-                ejectionEnd,
-              }));
-            } else if (state.verticalMode !== 'ascending') {
-              setPodNavState(s => ({ ...s, verticalMode: 'ascending' }));
-            }
-          }
-        }
-        break;
-        
-      case 'descend':
-        if (state.inTowerId !== null && state.verticalMode !== 'ejected') {
-          if (state.currentFloor <= 0) {
-            // Exit tower to road
-            const closestRoad = findClosestRoad(state.position, roads);
-            setPodNavState(s => ({
-              ...s,
-              inTowerId: null,
-              verticalMode: 'grounded',
-              currentRoad: closestRoad?.road || null,
-              roadProgress: closestRoad?.progress || 0,
-            }));
-          } else if (state.verticalMode !== 'descending') {
-            setPodNavState(s => ({ ...s, verticalMode: 'descending' }));
-          }
-        }
-        break;
-        
-      case 'camera-slot-1':
-        setPodNavState(s => ({ ...s, cameraSlot: 0 }));
-        break;
-      case 'camera-slot-2':
-        setPodNavState(s => ({ ...s, cameraSlot: 1 }));
-        break;
-      case 'camera-slot-3':
-        setPodNavState(s => ({ ...s, cameraSlot: 2 }));
-        break;
-      case 'camera-slot-4':
-        setPodNavState(s => ({ ...s, cameraSlot: 3 }));
-        break;
-      case 'camera-slot-5':
-        setPodNavState(s => ({ ...s, cameraSlot: 4 }));
-        break;
-      case 'camera-slot-6':
-        setPodNavState(s => ({ ...s, cameraSlot: 5 }));
-        break;
-      case 'camera-slot-7':
-        setPodNavState(s => ({ ...s, cameraSlot: 6 }));
-        break;
-        
-      case 'height-up':
-        setPodNavState(s => ({ ...s, cameraHeight: Math.min(4, s.cameraHeight + 1) as CameraHeight }));
-        break;
-        
-      case 'height-down':
-        setPodNavState(s => ({ ...s, cameraHeight: Math.max(0, s.cameraHeight - 1) as CameraHeight }));
-        break;
-        
-      case 'reset-camera':
-        setPodNavState(s => ({ ...s, cameraSlot: 0, cameraHeight: 2, cameraPan: 0, cameraTilt: 90 }));
-        break;
-    }
-  }, [presencePodInfo, roads, boundaries]);
-
-  // Notify parent when navigation state changes (for HUD rendering in parent)
-  useEffect(() => {
-    if (podNavState.active) {
-      onNavigationStateChange?.(podNavState, handlePodNavAction);
-    } else {
-      onNavigationStateChange?.(null, null);
-    }
-  }, [podNavState, onNavigationStateChange, handlePodNavAction]);
-
+  // Keyboard shortcuts for view presets and actions
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      // Ignore keyboard shortcuts when typing in input fields
       const target = event.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      // View preset keys (1-4)
+      const preset = VIEW_PRESET_KEYS[event.key];
+      if (preset) {
+        event.preventDefault();
+        switchToPreset(preset);
         return;
       }
 
-      // Check for pod navigation actions first
-      if (podNavState.active || event.key === 'n' || event.key === 'N') {
-        const action = NAV_KEY_BINDINGS[event.key];
-        if (action) {
-          event.preventDefault();
-          handlePodNavAction(action);
-          return;
-        }
+      // Focus on selected pod (F key)
+      if ((event.key === 'f' || event.key === 'F') && selectedPodId) {
+        event.preventDefault();
+        focusOnPod(selectedPodId);
+        return;
       }
 
-      // Original navigation mode toggle
-      if (event.key === 'n' || event.key === 'N') {
-        event.preventDefault();
-        if (!presencePodPosition) {
-          // Can't enter pod nav without presence
-          console.warn('Set presence in a pod first to use pod navigation');
-          return;
-        }
-        setNavigationMode((v) => !v);
-      }
-      if (event.key === 'Escape') {
-        setNavigationMode(false);
-        setPodNavState(s => ({ ...s, active: false }));
-      }
+      // Process pod (P key)
       if (event.key === 'p' || event.key === 'P') {
         onRequestProcessSelected?.();
       }
-      if (!podNavState.active) {
-        if (event.key === 'f' || event.key === 'F') {
-          event.preventDefault();
-          if (selectedPodId) {
-            const info = findPodSceneInfo(selectedPodId);
-            if (info) {
-              focusOnPosition(info.origin);
-            }
-          }
-        }
-        if (event.key === 'b' || event.key === 'B') {
-          event.preventDefault();
-          if (previousCameraPosition) {
-            setCameraAnimation({
-              from: cameraPosition,
-              to: previousCameraPosition,
-              startTime: Date.now(),
-              duration: 800,
-            });
-            setPreviousCameraPosition(null);
-          }
-        }
-      }
     };
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onRequestProcessSelected, selectedPodId, previousCameraPosition, findPodSceneInfo, focusOnPosition, cameraPosition, podNavState.active, presencePodPosition, handlePodNavAction]);
+  }, [switchToPreset, selectedPodId, focusOnPod, onRequestProcessSelected]);
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
 
+  // Scene controller component for camera animation
   const SceneControllers: React.FC = () => {
-    const { camera, gl } = useThree();
-
-    useEffect(() => {
-      navStateRef.current.position = cameraPosition;
-      if (!navigationMode) return;
-
-      const onKeyDown = (event: KeyboardEvent) => {
-        // Ignore keyboard shortcuts when typing in input fields
-        const target = event.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-          return;
-        }
-
-        const state = navStateRef.current;
-        const stepDist = 1.25;
-        const stepAngle = Math.PI / 24; // ~7.5 degrees per step (much finer control)
-        const maxPitchSteps = 12; // Allow wider pitch range with smaller steps
-
-        if (event.key === '0') {
-          event.preventDefault();
-          state.position = idealCameraPosition;
-          state.yawStep = 0;
-          state.pitchStep = 0;
-          return;
-        }
-
-        const yaw = state.yawStep * stepAngle;
-        const pitch = state.pitchStep * stepAngle;
-
-        const forward: Vec3 = [Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
-        const right: Vec3 = [Math.cos(yaw), 0, -Math.sin(yaw)];
-
-        const move = (dir: Vec3) => {
-          state.position = [
-            state.position[0] + dir[0] * stepDist,
-            state.position[1] + dir[1] * stepDist,
-            state.position[2] + dir[2] * stepDist,
-          ];
-        };
-
-        switch (event.key) {
-          case 'w':
-          case 'W':
-            event.preventDefault();
-            move([-forward[0], -forward[1], -forward[2]]);
-            break;
-          case 's':
-          case 'S':
-            event.preventDefault();
-            move(forward);
-            break;
-          case 'a':
-          case 'A':
-            event.preventDefault();
-            move([-right[0], -right[1], -right[2]]);
-            break;
-          case 'd':
-          case 'D':
-            event.preventDefault();
-            move(right);
-            break;
-          case 'r':
-          case 'R':
-            event.preventDefault();
-            move([0, 1, 0]);
-            break;
-          case 'f':
-          case 'F':
-            // In navigation mode, F moves down, not focus
-            if (navigationMode) {
-              event.preventDefault();
-              move([0, -1, 0]);
-            }
-            break;
-          case 'q':
-          case 'Q':
-          case 'ArrowLeft':
-            event.preventDefault();
-            state.yawStep -= 1;
-            break;
-          case 'e':
-          case 'E':
-          case 'ArrowRight':
-            event.preventDefault();
-            state.yawStep += 1;
-            break;
-          case 'ArrowUp':
-            event.preventDefault();
-            state.pitchStep = Math.min(maxPitchSteps, state.pitchStep + 1);
-            break;
-          case 'ArrowDown':
-            event.preventDefault();
-            state.pitchStep = Math.max(-maxPitchSteps, state.pitchStep - 1);
-            break;
-          default:
-            break;
-        }
-      };
-
-      window.addEventListener('keydown', onKeyDown);
-      return () => window.removeEventListener('keydown', onKeyDown);
-    }, [navigationMode, cameraPosition, idealCameraPosition]);
-
-    useEffect(() => {
-      if (!navigationMode) return;
-      // Sync navStateRef position with current camera position when entering navigation mode
-      navStateRef.current.position = [camera.position.x, camera.position.y, camera.position.z];
-      gl.domElement.style.cursor = 'crosshair';
-      return () => {
-        gl.domElement.style.cursor = 'default';
-      };
-    }, [navigationMode, gl.domElement, camera]);
-
-    // Ref to track navigation active state for mouse control without re-running effect
-    const podNavActiveRef = useRef(podNavState.active);
-    podNavActiveRef.current = podNavState.active;
-
-    // Mouse control for pod navigation pan/tilt
-    useEffect(() => {
-      // Only set up mouse control once, use ref to check active state
-      gl.domElement.style.cursor = podNavActiveRef.current ? 'crosshair' : 'default';
-      
-      let isPointerLocked = false;
-      
-      const onMouseMove = (event: MouseEvent) => {
-        if (!isPointerLocked || !podNavActiveRef.current) return;
-        
-        const sensitivity = 0.15;
-        const deltaX = event.movementX * sensitivity;
-        const deltaY = event.movementY * sensitivity;
-        
-        setPodNavState(s => ({
-          ...s,
-          cameraPan: (s.cameraPan + deltaX + 360) % 360,
-          cameraTilt: Math.max(0, Math.min(180, s.cameraTilt - deltaY)),
-        }));
-      };
-      
-      const onPointerLockChange = () => {
-        isPointerLocked = document.pointerLockElement === gl.domElement;
-        gl.domElement.style.cursor = isPointerLocked ? 'none' : (podNavActiveRef.current ? 'crosshair' : 'default');
-      };
-      
-      const onClick = () => {
-        if (!isPointerLocked && podNavActiveRef.current) {
-          gl.domElement.requestPointerLock();
-        }
-      };
-      
-      const onKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Escape' && isPointerLocked) {
-          document.exitPointerLock();
-        }
-      };
-      
-      gl.domElement.addEventListener('click', onClick);
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('pointerlockchange', onPointerLockChange);
-      window.addEventListener('keydown', onKeyDown);
-      
-      return () => {
-        gl.domElement.removeEventListener('click', onClick);
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('pointerlockchange', onPointerLockChange);
-        window.removeEventListener('keydown', onKeyDown);
-        if (document.pointerLockElement === gl.domElement) {
-          document.exitPointerLock();
-        }
-        gl.domElement.style.cursor = 'default';
-      };
-    }, [gl.domElement]);
+    const { camera } = useThree();
 
     useFrame((_, delta) => {
-      // Camera animation for smooth focus transitions
-      if (cameraAnimation && !navigationMode) {
+      // Camera animation for smooth transitions
+      if (cameraAnimation) {
         const elapsed = Date.now() - cameraAnimation.startTime;
         const t = Math.min(1, elapsed / cameraAnimation.duration);
-        // Easing function (ease-out cubic)
-        const eased = 1 - Math.pow(1 - t, 3);
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
         
-        const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-        const newPos: Vec3 = [
-          lerp(cameraAnimation.from[0], cameraAnimation.to[0], eased),
-          lerp(cameraAnimation.from[1], cameraAnimation.to[1], eased),
-          lerp(cameraAnimation.from[2], cameraAnimation.to[2], eased),
-        ];
+        const newPos = lerpVec3(cameraAnimation.from, cameraAnimation.to, eased) as Vec3;
+        const newTarget = lerpVec3(cameraAnimation.targetFrom, cameraAnimation.targetTo, eased) as Vec3;
         
         camera.position.set(...newPos);
         if (orbitControlsRef.current) {
+          orbitControlsRef.current.target.set(...newTarget);
           orbitControlsRef.current.update();
         }
         
         if (t >= 1) {
           setCameraAnimation(null);
           setCameraPosition(newPos);
+          setCameraTarget(newTarget);
         }
       }
 
@@ -831,9 +482,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       setWorkflow((current) => {
         if (!current?.active) return current;
         const segment = current.segments[current.segmentIndex];
-        if (!segment) {
-          return { ...current, active: false };
-        }
+        if (!segment) return { ...current, active: false };
 
         const nextElapsed = current.segmentElapsedSec + delta;
         const t = Math.min(1, nextElapsed / segment.durationSec);
@@ -854,240 +503,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
         return { ...current, position: nextPos, segmentElapsedSec: nextElapsed };
       });
-
-      // Pod navigation mode tick
-      if (podNavState.active) {
-        const state = podNavStateRef.current;
-        const speed = SPEED_VALUES[state.speed as SpeedLevel];
-        
-        // Handle different movement modes
-        if (state.verticalMode === 'grounded' && state.currentRoad && speed > 0) {
-          // Moving along road
-          const roadLength = Math.sqrt(
-            Math.pow(state.currentRoad.toWorld[0] - state.currentRoad.fromWorld[0], 2) +
-            Math.pow(state.currentRoad.toWorld[2] - state.currentRoad.fromWorld[2], 2)
-          );
-          
-          const progressDelta = (speed * delta) / roadLength;
-          
-          // Determine movement direction based on pod rotation
-          const roadAngle = Math.atan2(
-            state.currentRoad.toWorld[0] - state.currentRoad.fromWorld[0],
-            state.currentRoad.toWorld[2] - state.currentRoad.fromWorld[2]
-          );
-          const podAngle = (state.podRotation / 6) * Math.PI * 2;
-          
-          // Check if moving forward or backward along road
-          const angleDiff = Math.abs(((roadAngle - podAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-          const movingForward = angleDiff < Math.PI / 2;
-          
-          let newProgress = state.roadProgress;
-          if (movingForward) {
-            newProgress = Math.min(1, state.roadProgress + progressDelta);
-          } else {
-            newProgress = Math.max(0, state.roadProgress - progressDelta);
-          }
-          
-          // Update position
-          const newPos = getRoadPosition(state.currentRoad, newProgress);
-          const updatedPos: NavVec3 = [newPos[0], POD_HEIGHT / 2, newPos[2]];
-          
-          // Check if entering a tower boundary - only at road endpoints
-          // This prevents re-entering the tower we just left
-          const nearStart = newProgress <= 0.1;
-          const nearEnd = newProgress >= 0.9;
-          const movingToStart = !movingForward && nearStart;
-          const movingToEnd = movingForward && nearEnd;
-          
-          let enteredTower: TowerBoundary | null = null;
-          if (movingToStart) {
-            enteredTower = boundaries.find(b => b.towerId === state.currentRoad!.fromTowerId) || null;
-          } else if (movingToEnd) {
-            enteredTower = boundaries.find(b => b.towerId === state.currentRoad!.toTowerId) || null;
-          }
-          
-          if (enteredTower) {
-            setPodNavState(s => ({
-              ...s,
-              position: updatedPos,
-              roadProgress: newProgress,
-              inTowerId: enteredTower!.towerId,
-              currentFloor: 0,
-              speed: 0,
-              currentRoad: null,
-            }));
-          } else if (newProgress >= 1 || newProgress <= 0) {
-            // Reached end of road - transition to connected road
-            const atTowerId = newProgress >= 1 
-              ? state.currentRoad.toTowerId 
-              : state.currentRoad.fromTowerId;
-            
-            const connectedRoads = getConnectedRoads(atTowerId, roads)
-              .filter(r => r.id !== state.currentRoad!.id);
-            
-            if (connectedRoads.length > 0) {
-              // Pick road closest to current direction
-              let bestRoad = connectedRoads[0];
-              let bestAngleDiff = Infinity;
-              
-              for (const road of connectedRoads) {
-                const rAngle = Math.atan2(
-                  road.toWorld[0] - road.fromWorld[0],
-                  road.toWorld[2] - road.fromWorld[2]
-                );
-                const diff = Math.abs(((rAngle - podAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-                if (diff < bestAngleDiff) {
-                  bestAngleDiff = diff;
-                  bestRoad = road;
-                }
-              }
-              
-              // Start from the tower end
-              const nextProgress = bestRoad.fromTowerId === atTowerId ? 0 : 1;
-              setPodNavState(s => ({
-                ...s,
-                position: updatedPos,
-                currentRoad: bestRoad,
-                roadProgress: nextProgress,
-              }));
-            } else {
-              setPodNavState(s => ({
-                ...s,
-                position: updatedPos,
-                roadProgress: newProgress,
-              }));
-            }
-          } else {
-            setPodNavState(s => ({
-              ...s,
-              position: updatedPos,
-              roadProgress: newProgress,
-            }));
-          }
-        } else if (state.verticalMode === 'ascending') {
-          // Ascending to next floor
-          const targetY = (state.currentFloor + 1) * FLOOR_SPACING + POD_HEIGHT / 2;
-          const currentY = state.position[1];
-          const ascentSpeed = 3;
-          
-          const newY = Math.min(targetY, currentY + ascentSpeed * delta);
-          const updatedPos: NavVec3 = [state.position[0], newY, state.position[2]];
-          
-          if (newY >= targetY) {
-            setPodNavState(s => ({
-              ...s,
-              position: [s.position[0], targetY, s.position[2]],
-              currentFloor: s.currentFloor + 1,
-              verticalMode: 'grounded',
-            }));
-          } else {
-            setPodNavState(s => ({ ...s, position: updatedPos }));
-          }
-        } else if (state.verticalMode === 'descending') {
-          // Descending to previous floor
-          const targetY = (state.currentFloor - 1) * FLOOR_SPACING + POD_HEIGHT / 2;
-          const currentY = state.position[1];
-          const descentSpeed = 3;
-          
-          const newY = Math.max(targetY, currentY - descentSpeed * delta);
-          const updatedPos: NavVec3 = [state.position[0], newY, state.position[2]];
-          
-          if (newY <= targetY) {
-            setPodNavState(s => ({
-              ...s,
-              position: [s.position[0], targetY, s.position[2]],
-              currentFloor: s.currentFloor - 1,
-              verticalMode: 'grounded',
-            }));
-          } else {
-            setPodNavState(s => ({ ...s, position: updatedPos }));
-          }
-        } else if (state.verticalMode === 'ejected' && state.ejectionStart && state.ejectionEnd) {
-          // Parabolic ejection arc
-          const ejectionDuration = 3;
-          const newProgress = Math.min(1, state.ejectionProgress + delta / ejectionDuration);
-          
-          const arcPos = parabolicLerp(
-            state.ejectionStart,
-            state.ejectionEnd,
-            newProgress,
-            state.ejectionPeakHeight
-          );
-          
-          if (newProgress >= 1) {
-            // Landed
-            const closestRoad = findClosestRoad(state.ejectionEnd, roads);
-            setPodNavState(s => ({
-              ...s,
-              position: [s.ejectionEnd![0], POD_HEIGHT / 2, s.ejectionEnd![2]],
-              verticalMode: 'grounded',
-              inTowerId: null,
-              currentFloor: 0,
-              ejectionStart: null,
-              ejectionEnd: null,
-              ejectionProgress: 0,
-              currentRoad: closestRoad?.road || null,
-              roadProgress: closestRoad?.progress || 0,
-            }));
-          } else {
-            setPodNavState(s => ({
-              ...s,
-              position: arcPos,
-              ejectionProgress: newProgress,
-            }));
-          }
-        }
-        
-        // Update camera position and rotation for pod navigation
-        const camState = podNavStateRef.current;
-        
-        // Height offset: 5 levels evenly spaced from floor to ceiling
-        const heightRatio = camState.cameraHeight / 4;
-        const heightOffset = POD_HEIGHT * 0.1 + (POD_HEIGHT * 0.8) * heightRatio;
-        
-        // Slot offset: 0 = center, 1-6 = toward each hex face
-        let slotOffsetX = 0;
-        let slotOffsetZ = 0;
-        
-        if (camState.cameraSlot > 0) {
-          const slotAngle = ((camState.cameraSlot - 1) / 6) * Math.PI * 2;
-          const podRotationAngle = (camState.podRotation / 6) * Math.PI * 2;
-          const totalAngle = slotAngle + podRotationAngle;
-          
-          const slotDistance = POD_RADIUS * 0.5;
-          slotOffsetX = Math.sin(totalAngle) * slotDistance;
-          slotOffsetZ = Math.cos(totalAngle) * slotDistance;
-        }
-        
-        const camPos: Vec3 = [
-          camState.position[0] + slotOffsetX,
-          camState.position[1] + heightOffset,
-          camState.position[2] + slotOffsetZ,
-        ];
-        
-        const podRotationRad = (camState.podRotation / 6) * Math.PI * 2;
-        const panRad = (camState.cameraPan / 180) * Math.PI;
-        const tiltRad = ((camState.cameraTilt - 90) / 180) * Math.PI;
-        
-        camera.position.set(...camPos);
-        camera.rotation.order = 'YXZ';
-        camera.rotation.set(-tiltRad, podRotationRad + panRad, 0);
-        camera.updateProjectionMatrix();
-        
-        return;
-      }
-
-      // Original navigation camera tick (legacy mode)
-      if (navigationMode && !podNavState.active) {
-        const stepAngle = Math.PI / 24; // ~7.5 degrees per step
-        const yaw = navStateRef.current.yawStep * stepAngle;
-        const pitch = navStateRef.current.pitchStep * stepAngle;
-        camera.position.set(...navStateRef.current.position);
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y = yaw;
-        camera.rotation.x = -pitch;
-        camera.updateProjectionMatrix();
-      }
     });
 
     return (
@@ -1100,47 +515,91 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             onClick={() => {}}
           />
         )}
-        {/* Player pod during pod navigation - rendered at navigation position */}
-        {podNavState.active && (
-          <PodMesh
-            position={podNavState.position as Vec3}
-            isSelected={false}
-            hasAssignment={true}
-            onClick={() => {}}
-            isPresencePod={true}
-            opacity={1}
-          />
-        )}
       </>
     );
   };
 
+  // Determine if orbit controls should be constrained
+  const isFirstPerson = currentPreset === 'first-person' && presencePodInfo;
+
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', overflow: 'hidden' }}>
+      {/* Lobby mode banner */}
+      {lobbyMode && (
+        <div style={{
+          position: 'absolute',
+          top: 80,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 100,
+          backgroundColor: 'rgba(0, 99, 177, 0.95)',
+          color: 'white',
+          padding: '16px 32px',
+          borderRadius: 8,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          textAlign: 'center',
+          maxWidth: 400,
+        }}>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>Welcome to the Digital Twin</div>
+          <div style={{ fontSize: 14, opacity: 0.9 }}>
+            Select yourself in the Entity Library (right panel), then assign yourself to a pod to enter the workspace.
+          </div>
+        </div>
+      )}
+
+      {/* View preset indicator */}
+      <div style={{
+        position: 'absolute',
+        bottom: 20,
+        left: 20,
+        zIndex: 100,
+        display: 'flex',
+        gap: 8,
+      }}>
+        {(['first-person', 'birds-eye', 'tower-focus', 'floor-slice'] as ViewPreset[]).map((preset, idx) => (
+          <button
+            key={preset}
+            onClick={() => switchToPreset(preset)}
+            disabled={preset === 'first-person' && lobbyMode}
+            style={{
+              padding: '8px 12px',
+              fontSize: 12,
+              fontWeight: currentPreset === preset ? 600 : 400,
+              backgroundColor: currentPreset === preset ? 'var(--accent)' : 'rgba(255,255,255,0.9)',
+              color: currentPreset === preset ? 'white' : 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              cursor: preset === 'first-person' && lobbyMode ? 'not-allowed' : 'pointer',
+              opacity: preset === 'first-person' && lobbyMode ? 0.5 : 1,
+            }}
+          >
+            {idx + 1}: {preset.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </button>
+        ))}
+      </div>
+
       {/* 3D View */}
       <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e6f2ff' }}>
         <Canvas camera={{ position: cameraPosition, fov: 50 }} style={{ width: '100%', height: '100%' }}>
           <color attach="background" args={['#e6f2ff']} />
-          {!navigationMode && (
-            <OrbitControls
-              ref={orbitControlsRef}
-              makeDefault
-              enablePan
-              enableZoom
-              enableRotate
-              minDistance={5}
-              maxDistance={200}
-              minPolarAngle={0}
-              maxPolarAngle={Math.PI / 2}
-              enableDamping
-              dampingFactor={0.15}
-              rotateSpeed={0.35}
-              panSpeed={0.5}
-              zoomSpeed={0.7}
-              autoRotate={settings.autoRotate}
-              autoRotateSpeed={0.5}
-            />
-          )}
+          <OrbitControls
+            ref={orbitControlsRef}
+            makeDefault
+            enablePan={!isFirstPerson}
+            enableZoom={!isFirstPerson}
+            enableRotate={true}
+            minDistance={isFirstPerson ? 0.1 : 5}
+            maxDistance={isFirstPerson ? 0.1 : 200}
+            minPolarAngle={0}
+            maxPolarAngle={Math.PI / 2}
+            enableDamping
+            dampingFactor={0.15}
+            rotateSpeed={isFirstPerson ? 0.2 : 0.35}
+            panSpeed={0.5}
+            zoomSpeed={0.7}
+            autoRotate={settings.autoRotate && !isFirstPerson}
+            autoRotateSpeed={0.5}
+          />
           <ambientLight intensity={0.7} />
           <hemisphereLight intensity={0.4} color="#b3d9ff" groundColor="#e6f2ff" />
           <directionalLight 
@@ -1149,11 +608,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             castShadow
             shadow-mapSize-width={1024}
             shadow-mapSize-height={1024}
-            shadow-camera-far={50}
-            shadow-camera-left={-30}
-            shadow-camera-right={30}
-            shadow-camera-top={30}
-            shadow-camera-bottom={-30}
           />
           {/* Architectural accent spotlights per tower */}
           {towers.map((tower) => {
@@ -1182,9 +636,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
               floors={floors}
             />
           )}
-          
-          {/* Road network connecting towers */}
-          <RoadNetwork roads={roads} visible={true} />
 
           <SceneControllers />
 
@@ -1202,12 +653,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
                     onPodSelect={onPodSelect}
                     presencePodId={presencePodId}
                     dimPodId={workflowDimPodId}
-                    onPodDoubleClick={(podId) => {
-                      const info = findPodSceneInfo(podId);
-                      if (info) {
-                        focusOnPosition(info.origin);
-                      }
-                    }}
+                    onPodDoubleClick={(podId) => focusOnPod(podId)}
                   />
                 );
               })}
@@ -1215,57 +661,77 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           </Bounds>
         </Canvas>
       </div>
-      {/* Settings panel - always visible on the side */}
+
+      {/* Settings panel */}
       {showSettings && (
         <div style={{ 
-          width: 400, 
-          padding: 20, 
-          backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-          borderLeft: '1px solid #d1d1d1',
-          height: '100%',
-          boxShadow: '2px 0 5px rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 300, 
+          padding: 16, 
+          backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+          borderRadius: 8,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+          zIndex: 100,
         }}>
-          <h2 style={{ fontSize: 18, margin: 0, color: '#0063b1' }}>Layout Settings</h2>
-          <label style={{ fontSize: 14, color: '#333' }}>
+          <h3 style={{ fontSize: 14, margin: '0 0 12px 0', color: 'var(--text)' }}>Settings</h3>
+          <label style={{ fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8 }}>
             <input 
               type="checkbox" 
               checked={settings.autoRotate} 
               onChange={(e) => setSettings(s => ({ ...s, autoRotate: e.target.checked }))}
-              style={{ marginRight: 10 }}
             />
-            Auto Rotate
+            Auto Rotate (Birds-eye)
           </label>
-          <label style={{ fontSize: 14, color: '#333' }}>
+          <label style={{ fontSize: 13, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
             <input 
               type="checkbox" 
               checked={settings.showFloorGrid} 
               onChange={(e) => setSettings(s => ({ ...s, showFloorGrid: e.target.checked }))}
-              style={{ marginRight: 10 }}
             />
             Show Floor Grid
           </label>
-          <div style={{ flex: 1 }} />
           <button
             onClick={() => setShowSettings(false)}
             style={{
-              padding: '10px 15px',
-              backgroundColor: '#0063b1',
-              color: '#ffffff',
-              border: 'none',
+              marginTop: 12,
+              padding: '6px 12px',
+              fontSize: 12,
+              backgroundColor: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
               borderRadius: 4,
               cursor: 'pointer',
-              fontSize: 16,
-              fontWeight: 'bold',
-              transition: 'background-color 0.3s',
             }}
           >
-            Close Settings
+            Close
           </button>
         </div>
       )}
+
+      {/* Settings gear button */}
+      <button
+        onClick={() => setShowSettings(v => !v)}
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          backgroundColor: 'rgba(255,255,255,0.9)',
+          border: '1px solid var(--border)',
+          cursor: 'pointer',
+          display: showSettings ? 'none' : 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+          zIndex: 100,
+        }}
+        title="Settings"
+      >
+        ⚙️
+      </button>
     </div>
   );
-}
+};

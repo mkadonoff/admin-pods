@@ -7,13 +7,8 @@ interface MyPresenceBarProps {
   onSelectEntity: (entityId: number | null) => void;
   podName?: string;
   refreshKey?: number;
-  /** Virtual camera location when pod navigation is active */
-  navLocation?: {
-    active: boolean;
-    towerName?: string;
-    floorName?: string;
-    onRoad?: boolean;
-  } | null;
+  /** Whether the user is in lobby mode (no presence pod set) */
+  lobbyMode?: boolean;
 }
 
 export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
@@ -22,7 +17,7 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
   onSelectEntity,
   podName,
   refreshKey,
-  navLocation,
+  lobbyMode = false,
 }) => {
   const [people, setPeople] = useState<Entity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -69,21 +64,10 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
   };
 
   const presenceText = !selectedEntityId
-    ? 'Select your profile to track where you are.'
+    ? 'Select your profile to set your presence.'
     : podName
       ? `You are in: ${podName}`
-      : 'No pod assignment found for this profile.';
-
-  // Virtual camera location text
-  const navLocationText = navLocation?.active
-    ? navLocation.onRoad
-      ? 'On road between towers'
-      : navLocation.towerName && navLocation.floorName
-        ? `${navLocation.towerName} · ${navLocation.floorName}`
-        : navLocation.towerName
-          ? navLocation.towerName
-          : 'Navigating...'
-    : null;
+      : 'Assign yourself to a pod to enter the workspace.';
 
   return (
     <div
@@ -93,7 +77,7 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
         justifyContent: 'space-between',
         padding: '10px 20px',
         borderBottom: '1px solid var(--border)',
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: lobbyMode ? 'rgba(0, 99, 177, 0.1)' : 'var(--bg-surface)',
         gap: '12px',
         flexWrap: 'wrap',
       }}
@@ -102,22 +86,9 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           My Presence
         </div>
-        <div style={{ fontSize: '13px', color: 'var(--text)', fontWeight: 600 }}>
+        <div style={{ fontSize: '13px', color: lobbyMode ? 'var(--accent)' : 'var(--text)', fontWeight: 600 }}>
           {presenceText}
         </div>
-        {navLocationText && (
-          <div style={{ 
-            fontSize: '12px', 
-            color: 'var(--accent)', 
-            marginTop: '2px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}>
-            <span style={{ fontSize: '10px' }}>🚀</span>
-            <span>Virtual: {navLocationText}</span>
-          </div>
-        )}
         {error && (
           <div style={{ fontSize: '11px', color: 'var(--danger)', marginTop: '4px' }}>
             {error}
