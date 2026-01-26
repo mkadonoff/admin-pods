@@ -80,6 +80,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   };
   const [workflow, setWorkflow] = useState<WorkflowRun | null>(null);
 
+  // First-person look state (yaw and pitch in radians)
+  const [firstPersonLook, setFirstPersonLook] = useState<{ yaw: number; pitch: number }>({ yaw: 0, pitch: 0 });
+  const isDraggingRef = useRef(false);
+  const lastMouseRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // Camera animation state for smooth focus transitions
   const [cameraAnimation, setCameraAnimation] = useState<{
     from: Vec3;
@@ -200,8 +205,18 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
           presencePodInfo.position[1] - POD_HEIGHT / 2 + eyeHeight,
           presencePodInfo.position[2],
         ];
-        // Look forward (toward center of scene)
-        const target: Vec3 = [centerX, pos[1], centerZ];
+        // Look outward from the pod (away from tower center toward scene edge)
+        const towerPos = TowerPositions[presencePodInfo.towerId] ?? { x: 0, z: 0 };
+        const dirX = pos[0] - towerPos.x;
+        const dirZ = pos[2] - towerPos.z;
+        const dist = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+        // Normalize and extend to look outward
+        const lookDist = 10;
+        const target: Vec3 = [
+          pos[0] + (dirX / dist) * lookDist,
+          pos[1],
+          pos[2] + (dirZ / dist) * lookDist,
+        ];
         return { position: pos, target };
       }
       
@@ -425,11 +440,42 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     startWorkflow(processRequest.podId);
   }, [processRequest?.nonce]);
 
+  const isFirstPerson = currentPreset === 'first-person' && presencePodInfo;
+
   // Keyboard shortcuts for view presets and actions
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      // Arrow keys for first-person look (when in first-person mode)
+      if (isFirstPerson) {
+        const ARROW_ROTATE_SPEED = 0.05;
+        switch (event.key) {
+          case 'ArrowLeft':
+            event.preventDefault();
+            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw + ARROW_ROTATE_SPEED }));
+            return;
+          case 'ArrowRight':
+            event.preventDefault();
+            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw - ARROW_ROTATE_SPEED }));
+            return;
+          case 'ArrowUp':
+            event.preventDefault();
+            setFirstPersonLook(prev => ({ 
+              ...prev, 
+              pitch: Math.min(Math.PI / 3, prev.pitch + ARROW_ROTATE_SPEED) 
+            }));
+            return;
+          case 'ArrowDown':
+            event.preventDefault();
+            setFirstPersonLook(prev => ({ 
+              ...prev, 
+              pitch: Math.max(-Math.PI / 3, prev.pitch - ARROW_ROTATE_SPEED) 
+            }));
+            return;
+        }
+      }
 
       // View preset keys (1-4)
       const preset = VIEW_PRESET_KEYS[event.key];
@@ -454,15 +500,68 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [switchToPreset, selectedPodId, focusOnPod, onRequestProcessSelected]);
+  }, [switchToPreset, selectedPodId, focusOnPod, onRequestProcessSelected, isFirstPerson]);
+
+  // Reset first-person look when switching to first-person preset
+  useEffect(() => {
+    if (currentPreset === 'first-person' && presencePodInfo) {
+      // Calculate initial yaw based on pod position relative to tower
+      const towerPos = TowerPositions[presencePodInfo.towerId] ?? { x: 0, z: 0 };
+      const dirX = presencePodInfo.position[0] - towerPos.x;
+      const dirZ = presencePodInfo.position[2] - towerPos.z;
+      const initialYaw = Math.atan2(dirX, dirZ);
+      setFirstPersonLook({ yaw: initialYaw, pitch: 0 });
+    }
+  }, [currentPreset, presencePodInfo, TowerPositions]);
 
   const workflowDimPodId = workflow?.active ? workflow.podId : null;
+
+  // First-person mouse handlers
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!isFirstPerson) return;
+    isDraggingRef.current = true;
+    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+  }, [isFirstPerson]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isFirstPerson || !isDraggingRef.current) return;
+    
+    const sensitivity = 0.003;
+    const deltaX = e.clientX - lastMouseRef.current.x;
+    const deltaY = e.clientY - lastMouseRef.current.y;
+    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+    
+    setFirstPersonLook(prev => ({
+      yaw: prev.yaw - deltaX * sensitivity,
+      pitch: Math.max(-Math.PI / 3, Math.min(Math.PI / 3, prev.pitch - deltaY * sensitivity)),
+    }));
+  }, [isFirstPerson]);
+
+  const handleMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+  }, []);
 
   // Scene controller component for camera animation
   const SceneControllers: React.FC = () => {
     const { camera } = useThree();
 
     useFrame((_, delta) => {
+      // First-person mode: lock camera position and apply look rotation
+      if (isFirstPerson && presencePodInfo && !cameraAnimation) {
+        const eyeHeight = POD_HEIGHT * 0.7;
+        const fixedPos: Vec3 = [
+          presencePodInfo.position[0],
+          presencePodInfo.position[1] - POD_HEIGHT / 2 + eyeHeight,
+          presencePodInfo.position[2],
+        ];
+        camera.position.set(...fixedPos);
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y = firstPersonLook.yaw;
+        camera.rotation.x = firstPersonLook.pitch;
+        camera.updateProjectionMatrix();
+        return; // Skip other camera updates in first-person
+      }
+
       // Camera animation for smooth transitions
       if (cameraAnimation) {
         const elapsed = Date.now() - cameraAnimation.startTime;
@@ -526,9 +625,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     );
   };
 
-  // Determine if orbit controls should be constrained
-  const isFirstPerson = currentPreset === 'first-person' && presencePodInfo;
-
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%', overflow: 'hidden' }}>
       {/* Lobby mode banner */}
@@ -586,22 +682,54 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
       </div>
 
       {/* 3D View */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0, height: '100%', backgroundColor: '#e6f2ff' }}>
+      <div 
+        style={{ 
+          flex: 1, 
+          position: 'relative', 
+          minHeight: 0, 
+          height: '100%', 
+          backgroundColor: '#e6f2ff',
+          cursor: isFirstPerson ? 'grab' : 'default',
+        }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {/* First-person mode indicator */}
+        {isFirstPerson && (
+          <div style={{
+            position: 'absolute',
+            top: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+            backgroundColor: 'rgba(0, 99, 177, 0.85)',
+            color: 'white',
+            padding: '6px 16px',
+            borderRadius: 6,
+            fontSize: 13,
+            fontWeight: 500,
+          }}>
+            👁️ First-Person View — Drag or use arrow keys to look around
+          </div>
+        )}
         <Canvas camera={{ position: cameraPosition, fov: 50 }} style={{ width: '100%', height: '100%' }}>
           <color attach="background" args={['#e6f2ff']} />
           <OrbitControls
             ref={orbitControlsRef}
             makeDefault
-            enablePan={!isFirstPerson}
-            enableZoom={!isFirstPerson}
+            enabled={!isFirstPerson}
+            enablePan={true}
+            enableZoom={true}
             enableRotate={true}
-            minDistance={isFirstPerson ? 0.1 : 5}
-            maxDistance={isFirstPerson ? 0.1 : 200}
+            minDistance={5}
+            maxDistance={200}
             minPolarAngle={0}
             maxPolarAngle={Math.PI / 2}
             enableDamping
             dampingFactor={0.15}
-            rotateSpeed={isFirstPerson ? 0.2 : 0.35}
+            rotateSpeed={0.35}
             panSpeed={0.5}
             zoomSpeed={0.7}
             autoRotate={settings.autoRotate && !isFirstPerson}
