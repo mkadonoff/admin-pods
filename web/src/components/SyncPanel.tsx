@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { syncAPI, EntitySyncType } from '../api';
 
 interface SyncPanelProps {
+  digitalTwinId: number | null;
   onSyncComplete?: () => void;
 }
 
@@ -12,7 +13,7 @@ const ENTITY_TYPES: { key: EntitySyncType; label: string; icon: string }[] = [
   { key: 'equipment', label: 'Equipment', icon: '🖨️' },
 ];
 
-export const SyncPanel: React.FC<SyncPanelProps> = ({ onSyncComplete }) => {
+export const SyncPanel: React.FC<SyncPanelProps> = ({ digitalTwinId, onSyncComplete }) => {
   const [syncing, setSyncing] = useState<EntitySyncType | 'full' | null>(null);
   const [lastResult, setLastResult] = useState<{
     type: string;
@@ -32,7 +33,7 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({ onSyncComplete }) => {
     setLastResult(null);
 
     try {
-      const response = await syncAPI.single(entityType);
+      const response = await syncAPI.single(entityType, digitalTwinId ?? undefined);
       setLastResult({
         type: response.data.entityType,
         created: response.data.created,
@@ -57,7 +58,7 @@ export const SyncPanel: React.FC<SyncPanelProps> = ({ onSyncComplete }) => {
     setLastResult(null);
 
     try {
-      const response = await syncAPI.full();
+      const response = await syncAPI.full(digitalTwinId ?? undefined);
       const data = response.data as any;
       setLastResult({
         type: 'All',

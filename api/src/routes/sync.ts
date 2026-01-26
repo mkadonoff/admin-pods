@@ -21,10 +21,11 @@ export default function createSyncRoutes(prisma: PrismaClient) {
       return res.status(409).json({ error: 'Sync already in progress' });
     }
 
+    const { digitalTwinId } = req.body;
     syncInProgress = true;
 
     try {
-      const result = await runFullSync(prisma);
+      const result = await runFullSync(prisma, digitalTwinId);
       lastSyncResult = result;
       res.json(result);
     } catch (error: any) {
@@ -37,6 +38,7 @@ export default function createSyncRoutes(prisma: PrismaClient) {
   // POST /sync/eautomate/:entityType - sync a single entity type
   router.post('/eautomate/:entityType', async (req: Request, res: Response) => {
     const { entityType } = req.params;
+    const { digitalTwinId } = req.body;
     const validTypes: EntitySyncType[] = ['users', 'customers', 'equipment', 'contacts'];
     
     if (!validTypes.includes(entityType as EntitySyncType)) {
@@ -52,12 +54,12 @@ export default function createSyncRoutes(prisma: PrismaClient) {
     syncInProgress = true;
 
     try {
-      const { digitalTwinId, result } = await runSingleSync(prisma, entityType as EntitySyncType);
+      const { digitalTwinId: syncedTwinId, result } = await runSingleSync(prisma, entityType as EntitySyncType, digitalTwinId);
       const syncedAt = new Date().toISOString();
       lastSingleSyncResults[entityType as EntitySyncType] = { result, syncedAt };
       
       res.json({
-        digitalTwinId,
+        digitalTwinId: syncedTwinId,
         syncedAt,
         entityType: result.entityType,
         created: result.created,

@@ -364,7 +364,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
             }}>
               ⚠️ Sync operations may take several minutes and affect many records.
             </div>
-            <SyncPanel onSyncComplete={() => { loadEntities(); loadEntityTypes(); }} />
+            <SyncPanel digitalTwinId={digitalTwinId} onSyncComplete={() => { loadEntities(); loadEntityTypes(); }} />
           </div>
         )}
       </div>

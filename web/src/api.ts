@@ -199,8 +199,9 @@ export interface SingleSyncResponse {
 }
 
 export const syncAPI = {
-  full: () => API.post('/sync/eautomate'),
-  single: (entityType: EntitySyncType) => API.post<SingleSyncResponse>(`/sync/eautomate/${entityType}`),
+  full: (digitalTwinId?: number) => API.post('/sync/eautomate', { digitalTwinId }),
+  single: (entityType: EntitySyncType, digitalTwinId?: number) => 
+    API.post<SingleSyncResponse>(`/sync/eautomate/${entityType}`, { digitalTwinId }),
 };
 
 // Helper to get state color for customers

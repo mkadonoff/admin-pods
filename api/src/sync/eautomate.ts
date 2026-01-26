@@ -84,9 +84,24 @@ async function deleteOrphanedEntities(
 }
 
 /**
- * Get or create the RPG Squarefoot Solutions digital twin
+ * Get or create a digital twin for syncing
+ * If providedId is given, verify it exists and use it
+ * Otherwise, create/find the default RPG Squarefoot Solutions twin
  */
-async function getOrCreateDigitalTwin(prisma: PrismaClient): Promise<number> {
+async function getOrCreateDigitalTwin(prisma: PrismaClient, providedId?: number): Promise<number> {
+  // If a specific digital twin ID is provided, verify it exists
+  if (providedId) {
+    const existing = await prisma.digitalTwin.findUnique({
+      where: { digitalTwinId: providedId },
+    });
+    if (existing) {
+      console.log(`Using provided digital twin: ${existing.name} (ID: ${providedId})`);
+      return providedId;
+    }
+    console.warn(`Provided digitalTwinId ${providedId} not found, falling back to default`);
+  }
+
+  // Fall back to default digital twin
   let twin = await prisma.digitalTwin.findUnique({
     where: { name: DIGITAL_TWIN_NAME },
   });
@@ -367,12 +382,12 @@ async function syncContacts(prisma: PrismaClient, digitalTwinId: number): Promis
 /**
  * Run full sync from e-automate to Digital Twin
  */
-export async function runFullSync(prisma: PrismaClient): Promise<FullSyncResult> {
+export async function runFullSync(prisma: PrismaClient, providedDigitalTwinId?: number): Promise<FullSyncResult> {
   console.log('Starting e-automate sync...');
   const startTime = Date.now();
 
   try {
-    const digitalTwinId = await getOrCreateDigitalTwin(prisma);
+    const digitalTwinId = await getOrCreateDigitalTwin(prisma, providedDigitalTwinId);
 
     const results: SyncResult[] = [];
 
@@ -429,9 +444,10 @@ export type EntitySyncType = 'users' | 'customers' | 'equipment' | 'contacts';
 
 export async function runSingleSync(
   prisma: PrismaClient,
-  entityType: EntitySyncType
+  entityType: EntitySyncType,
+  providedDigitalTwinId?: number
 ): Promise<{ digitalTwinId: number; result: SyncResult }> {
-  const digitalTwinId = await getOrCreateDigitalTwin(prisma);
+  const digitalTwinId = await getOrCreateDigitalTwin(prisma, providedDigitalTwinId);
 
   let result: SyncResult;
   
