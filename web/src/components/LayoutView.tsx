@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Tower, Floor, Ring } from '../api';
+import { Tower, Floor, Ring, getStateColor } from '../api';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Text, OrbitControls, Bounds } from '@react-three/drei';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
@@ -331,12 +331,14 @@ function SimplePodMesh({
   hasAssignment,
   onClick,
   isPresencePod = false,
+  stateColor,
 }: {
   position: [number, number, number];
   isSelected: boolean;
   hasAssignment: boolean;
   onClick: () => void;
   isPresencePod?: boolean;
+  stateColor?: string | null;
 }) {
   const podRadius = POD_RADIUS * 0.8;
   
@@ -344,9 +346,11 @@ function SimplePodMesh({
     ? '#9966cc'
     : isSelected
       ? '#ffbb44'
-      : hasAssignment
-        ? '#66aa77'
-        : '#6699cc';
+      : stateColor
+        ? stateColor
+        : hasAssignment
+          ? '#66aa77'
+          : '#6699cc';
   
   return (
     <mesh position={position} onClick={onClick}>
@@ -373,6 +377,7 @@ function PodMesh({
   onDoubleClick,
   isPresencePod = false,
   opacity = 1,
+  stateColor,
 }: {
   position: [number, number, number];
   isSelected: boolean;
@@ -383,18 +388,21 @@ function PodMesh({
   onDoubleClick?: () => void;
   isPresencePod?: boolean;
   opacity?: number;
+  stateColor?: string | null;
 }) {
   // Accent color for the steel frame - Azure-themed metallic blue
   const frameColor = '#0063b1'; // Dark Azure blue steel
   
-  // Glass tint based on pod state
+  // Glass tint based on pod state - prioritize stateColor if present
   const glassTint = isPresencePod
     ? '#9999dd' // Purple tint
     : isSelected
       ? '#ffdd88' // Warm yellow tint
-      : hasAssignment
-        ? '#99ddaa' // Green tint
-        : '#aaccee'; // Cool blue tint
+      : stateColor
+        ? stateColor // Use state-based color for customers
+        : hasAssignment
+          ? '#99ddaa' // Green tint
+          : '#aaccee'; // Cool blue tint
   
   const podRadius = POD_RADIUS * 0.8;
   const frameThickness = 0.025;
@@ -408,7 +416,7 @@ function PodMesh({
         <meshStandardMaterial 
           color={glassTint}
           transparent
-          opacity={0.2 * opacity}
+          opacity={(stateColor ? 0.4 : 0.2) * opacity}
           metalness={0.9}
           roughness={0.05}
           side={THREE.DoubleSide}
@@ -490,6 +498,20 @@ function PodMesh({
         </mesh>
       )}
       
+      {/* State color ring at base - visible indicator for customer state */}
+      {stateColor && !isSelected && (
+        <mesh position={[0, -POD_HEIGHT / 2 + 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[podRadius + 0.02, podRadius + 0.12, 6]} />
+          <meshStandardMaterial 
+            color={stateColor} 
+            emissive={stateColor}
+            emissiveIntensity={0.6}
+            transparent 
+            opacity={0.85}
+          />
+        </mesh>
+      )}
+      
       {isPresencePod && (
         <group position={[0, POD_HEIGHT * 0.9, 0]}>
           <mesh>
@@ -565,6 +587,22 @@ function RingMesh({
         const isPresence = presencePodId === pod.podId;
         const isSelected = selectedPodId === pod.podId;
         
+        // Get state color from first Customer assignment
+        const customerAssignment = (pod.assignments || []).find(
+          (a) => a.entity?.entityType === 'Customer' && a.entity?.content
+        );
+        let stateColor: string | null = null;
+        if (customerAssignment?.entity?.content) {
+          try {
+            const content = JSON.parse(customerAssignment.entity.content);
+            if (content.state) {
+              stateColor = getStateColor(content.state);
+            }
+          } catch {
+            // ignore parse errors
+          }
+        }
+        
         // Use simplified mesh for LOD mode (many pods)
         if (useLOD && !isSelected && !isPresence) {
           return (
@@ -575,6 +613,7 @@ function RingMesh({
               hasAssignment={hasAssignment}
               onClick={() => onPodSelect(pod.podId)}
               isPresencePod={false}
+              stateColor={stateColor}
             />
           );
         }
@@ -583,6 +622,7 @@ function RingMesh({
           (a) => a.entity?.entityType === 'User' || a.entity?.entityType === 'Agent'
         );
         const isDimmed = dimPodId === pod.podId;
+        
         return (
           <PodMesh
             key={pod.podId}
@@ -595,6 +635,7 @@ function RingMesh({
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
             isPresencePod={isPresence}
             opacity={isDimmed ? 0.2 : 1}
+            stateColor={stateColor}
           />
         );
       })}
