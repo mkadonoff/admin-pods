@@ -13,6 +13,7 @@
     "migrate:entity-types": "npx ts-node scripts/migrate-entity-types.ts",
     "sync:eautomate": "npx ts-node scripts/sync-eautomate.ts",
     "generate:customer-floors": "npx ts-node scripts/generate-customer-floors.ts",
+    "generate:user-floors": "npx ts-node scripts/generate-user-floors.ts",
     "test": "jest"
   },
   "keywords": [],
