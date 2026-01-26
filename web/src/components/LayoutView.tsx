@@ -287,12 +287,19 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     }
   }, [towers.length, cameraInitialized, getPresetCamera, lobbyMode]);
 
-  // When presence pod becomes available, switch to first-person
+  // Track if we've ever had a presence pod (to detect first assignment)
+  const hadPresencePodRef = useRef(false);
+  
+  // When presence pod becomes available FOR THE FIRST TIME, switch to first-person
   useEffect(() => {
-    if (presencePodInfo && currentPreset === 'birds-eye' && !lobbyMode) {
-      switchToPreset('first-person');
+    if (presencePodInfo && !hadPresencePodRef.current) {
+      hadPresencePodRef.current = true;
+      // Only auto-switch if we're currently in lobby/birds-eye mode
+      if (currentPreset === 'birds-eye' && !lobbyMode) {
+        switchToPreset('first-person');
+      }
     }
-  }, [presencePodInfo, currentPreset, lobbyMode, switchToPreset]);
+  }, [presencePodInfo, lobbyMode]);
 
   // Find pod scene info helper
   const findPodSceneInfo = useCallback(
