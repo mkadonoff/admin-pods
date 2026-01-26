@@ -324,6 +324,44 @@ function HumanoidSkeleton({
   );
 }
 
+// Simple pod for LOD - single mesh for performance with many pods
+function SimplePodMesh({
+  position,
+  isSelected,
+  hasAssignment,
+  onClick,
+  isPresencePod = false,
+}: {
+  position: [number, number, number];
+  isSelected: boolean;
+  hasAssignment: boolean;
+  onClick: () => void;
+  isPresencePod?: boolean;
+}) {
+  const podRadius = POD_RADIUS * 0.8;
+  
+  const color = isPresencePod
+    ? '#9966cc'
+    : isSelected
+      ? '#ffbb44'
+      : hasAssignment
+        ? '#66aa77'
+        : '#6699cc';
+  
+  return (
+    <mesh position={position} onClick={onClick}>
+      <cylinderGeometry args={[podRadius, podRadius, POD_HEIGHT, 6]} />
+      <meshStandardMaterial 
+        color={color}
+        transparent
+        opacity={0.7}
+        metalness={0.3}
+        roughness={0.5}
+      />
+    </mesh>
+  );
+}
+
 // 3D Pod component with glass and steel frame
 function PodMesh({
   position,
@@ -472,6 +510,7 @@ function RingMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
+  useLOD = false,
 }: {
   ring: Ring;
   floorY: number;
@@ -483,6 +522,7 @@ function RingMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
+  useLOD?: boolean;
 }) {
   const pods = ring.pods || [];
   const radius = ring.radiusIndex * 2;
@@ -508,6 +548,23 @@ function RingMesh({
           podAngle = -angle - Math.PI / 2;
         }
         const hasAssignment = (pod.assignments?.length ?? 0) > 0;
+        const isPresence = presencePodId === pod.podId;
+        const isSelected = selectedPodId === pod.podId;
+        
+        // Use simplified mesh for LOD mode (many pods)
+        if (useLOD && !isSelected && !isPresence) {
+          return (
+            <SimplePodMesh
+              key={pod.podId}
+              position={[x, floorY + POD_HEIGHT / 2, z]}
+              isSelected={false}
+              hasAssignment={hasAssignment}
+              onClick={() => onPodSelect(pod.podId)}
+              isPresencePod={false}
+            />
+          );
+        }
+        
         const hasHumanoid = (pod.assignments || []).some(
           (a) => a.entity?.entityType === 'User' || a.entity?.entityType === 'Agent'
         );
@@ -516,13 +573,13 @@ function RingMesh({
           <PodMesh
             key={pod.podId}
             position={[x, floorY + POD_HEIGHT / 2, z]}
-            isSelected={selectedPodId === pod.podId}
+            isSelected={isSelected}
             hasAssignment={hasAssignment}
             hasHumanoid={hasHumanoid}
             faceAngle={podAngle}
             onClick={() => onPodSelect(pod.podId)}
             onDoubleClick={() => onPodDoubleClick?.(pod.podId)}
-            isPresencePod={presencePodId === pod.podId}
+            isPresencePod={isPresence}
             opacity={isDimmed ? 0.2 : 1}
           />
         );
@@ -543,6 +600,7 @@ function FloorMesh({
   dimPodId,
   onPodDoubleClick,
   hidePresencePod = false,
+  useLOD = false,
 }: {
   floor: Floor;
   floorIndex: number;
@@ -554,6 +612,7 @@ function FloorMesh({
   dimPodId?: number | null;
   onPodDoubleClick?: (podId: number) => void;
   hidePresencePod?: boolean;
+  useLOD?: boolean;
 }) {
   const floorY = floorIndex * FLOOR_SPACING;
   const rings = floor.rings || [];
@@ -607,6 +666,7 @@ function FloorMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
+          useLOD={useLOD}
         />
       ))}
     </group>
@@ -641,6 +701,12 @@ function TowerMesh({
     ? Math.max(...sortedFloors.map(f => f.orderIndex)) 
     : 0;
   const labelY = (maxOrderIndex + 1) * FLOOR_SPACING + 1;
+  
+  // Enable LOD for towers with many floors or pods (performance optimization)
+  const totalPods = floors.reduce((sum, floor) => 
+    sum + (floor.rings || []).reduce((ringSum, ring) => 
+      ringSum + (ring.pods?.length || 0), 0), 0);
+  const useLOD = floors.length > 10 || totalPods > 500;
 
   return (
     <group>
@@ -671,6 +737,7 @@ function TowerMesh({
           dimPodId={dimPodId}
           onPodDoubleClick={onPodDoubleClick}
           hidePresencePod={hidePresencePod}
+          useLOD={useLOD}
         />
       ))}
     </group>

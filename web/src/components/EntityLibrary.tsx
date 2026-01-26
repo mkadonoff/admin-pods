@@ -236,13 +236,6 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
     return Array.from(types).sort();
   }, [entityTypes]);
 
-  // Map type to count for display
-  const typeCountMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    entityTypes.forEach(t => { map[t.entityType] = t.count; });
-    return map;
-  }, [entityTypes]);
-
   // Filter types for dropdown based on input
   const filteredTypes = useMemo(() => {
     if (!newEntityType) return existingTypes;
