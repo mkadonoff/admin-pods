@@ -188,6 +188,9 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     return null;
   }, [presencePodId, floors, TowerPositions]);
 
+  // Is the user currently in first-person mode?
+  const isFirstPerson = currentPreset === 'first-person' && presencePodInfo;
+
   // Compute camera position for each view preset
   const getPresetCamera = useCallback((preset: ViewPreset): { position: Vec3; target: Vec3 } => {
     const { centerX, centerZ, extent, maxFloors } = sceneBounds;
@@ -282,6 +285,14 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     setCurrentPreset(preset);
     animateCameraTo(position, target);
   }, [getPresetCamera, animateCameraTo]);
+
+  // Sync OrbitControls target when cameraTarget changes (fixes initial askew view)
+  useEffect(() => {
+    if (orbitControlsRef.current && !isFirstPerson) {
+      orbitControlsRef.current.target.set(...cameraTarget);
+      orbitControlsRef.current.update();
+    }
+  }, [cameraTarget, isFirstPerson]);
 
   // Initialize camera on load
   useEffect(() => {
@@ -440,8 +451,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     startWorkflow(processRequest.podId);
   }, [processRequest?.nonce]);
 
-  const isFirstPerson = currentPreset === 'first-person' && presencePodInfo;
-
   // Keyboard shortcuts for view presets and actions
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -454,11 +463,11 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         switch (event.key) {
           case 'ArrowLeft':
             event.preventDefault();
-            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw + ARROW_ROTATE_SPEED }));
+            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw - ARROW_ROTATE_SPEED }));
             return;
           case 'ArrowRight':
             event.preventDefault();
-            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw - ARROW_ROTATE_SPEED }));
+            setFirstPersonLook(prev => ({ ...prev, yaw: prev.yaw + ARROW_ROTATE_SPEED }));
             return;
           case 'ArrowUp':
             event.preventDefault();
@@ -532,8 +541,8 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
     
     setFirstPersonLook(prev => ({
-      yaw: prev.yaw - deltaX * sensitivity,
-      pitch: Math.max(-Math.PI / 3, Math.min(Math.PI / 3, prev.pitch - deltaY * sensitivity)),
+      yaw: prev.yaw + deltaX * sensitivity,
+      pitch: Math.max(-Math.PI / 3, Math.min(Math.PI / 3, prev.pitch + deltaY * sensitivity)),
     }));
   }, [isFirstPerson]);
 
@@ -650,37 +659,6 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         </div>
       )}
 
-      {/* View preset indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: 20,
-        left: 20,
-        zIndex: 100,
-        display: 'flex',
-        gap: 8,
-      }}>
-        {(['first-person', 'birds-eye', 'tower-focus', 'floor-slice'] as ViewPreset[]).map((preset, idx) => (
-          <button
-            key={preset}
-            onClick={() => switchToPreset(preset)}
-            disabled={preset === 'first-person' && lobbyMode}
-            style={{
-              padding: '8px 12px',
-              fontSize: 12,
-              fontWeight: currentPreset === preset ? 600 : 400,
-              backgroundColor: currentPreset === preset ? 'var(--accent)' : 'rgba(255,255,255,0.9)',
-              color: currentPreset === preset ? 'white' : 'var(--text)',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              cursor: preset === 'first-person' && lobbyMode ? 'not-allowed' : 'pointer',
-              opacity: preset === 'first-person' && lobbyMode ? 0.5 : 1,
-            }}
-          >
-            {idx + 1}: {preset.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-          </button>
-        ))}
-      </div>
-
       {/* 3D View */}
       <div 
         style={{ 
@@ -696,11 +674,59 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
       >
+        {/* View preset buttons - top right */}
+        <div style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 100,
+          display: 'flex',
+          gap: 4,
+          backgroundColor: 'rgba(255,255,255,0.95)',
+          padding: '4px',
+          borderRadius: 8,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}>
+          {(['first-person', 'birds-eye', 'tower-focus', 'floor-slice'] as ViewPreset[]).map((preset, idx) => {
+            const labels = ['1st Person', 'Overview', 'Tower', 'Slice'];
+            const icons = ['👁️', '🗺️', '🏢', '📐'];
+            const isActive = currentPreset === preset;
+            const isDisabled = preset === 'first-person' && lobbyMode;
+            return (
+              <button
+                key={preset}
+                onClick={() => switchToPreset(preset)}
+                disabled={isDisabled}
+                title={`${preset.replace('-', ' ')} (${idx + 1})`}
+                style={{
+                  padding: '6px 10px',
+                  fontSize: 11,
+                  fontWeight: isActive ? 600 : 400,
+                  backgroundColor: isActive ? 'var(--accent)' : 'transparent',
+                  color: isActive ? 'white' : 'var(--text)',
+                  border: 'none',
+                  borderRadius: 6,
+                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                  opacity: isDisabled ? 0.4 : 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 2,
+                  minWidth: 52,
+                }}
+              >
+                <span style={{ fontSize: 14 }}>{icons[idx]}</span>
+                <span>{labels[idx]}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* First-person mode indicator */}
         {isFirstPerson && (
           <div style={{
             position: 'absolute',
-            top: 12,
+            bottom: 16,
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 100,
@@ -708,7 +734,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
             color: 'white',
             padding: '6px 16px',
             borderRadius: 6,
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 500,
           }}>
             👁️ First-Person View — Drag or use arrow keys to look around

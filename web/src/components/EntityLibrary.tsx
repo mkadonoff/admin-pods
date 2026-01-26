@@ -40,6 +40,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
   const [editName, setEditName] = useState('');
   const [documentDrafts, setDocumentDrafts] = useState<Record<number, string>>({});
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showSyncPanel, setShowSyncPanel] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string> | 'all'>('all');
   const typeInputRef = useRef<HTMLInputElement>(null);
@@ -320,9 +321,52 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         </span>
       </h2>
 
-      {/* Sync Panel */}
-      <div style={{ marginBottom: '10px' }}>
-        <SyncPanel onSyncComplete={() => { loadEntities(); loadEntityTypes(); }} />
+      {/* Sync Panel - Collapsible with warning */}
+      <div style={{ 
+        marginBottom: '10px', 
+        border: '1px solid var(--border)', 
+        borderRadius: '4px',
+        backgroundColor: 'var(--bg-elevated)',
+        overflow: 'hidden',
+      }}>
+        <button
+          onClick={() => setShowSyncPanel(!showSyncPanel)}
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '6px 8px',
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: 'var(--text-muted)',
+            fontSize: '10px',
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span>{showSyncPanel ? '▼' : '▶'}</span>
+            <span>🔄 e-automate Sync</span>
+          </span>
+          <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Admin</span>
+        </button>
+        {showSyncPanel && (
+          <div style={{ padding: '0 8px 8px 8px' }}>
+            <div style={{ 
+              fontSize: '10px', 
+              color: '#996600', 
+              backgroundColor: 'rgba(255, 193, 7, 0.15)', 
+              padding: '6px 8px', 
+              borderRadius: '4px', 
+              marginBottom: '8px',
+              border: '1px solid rgba(255, 193, 7, 0.3)',
+            }}>
+              ⚠️ Sync operations may take several minutes and affect many records.
+            </div>
+            <SyncPanel onSyncComplete={() => { loadEntities(); loadEntityTypes(); }} />
+          </div>
+        )}
       </div>
 
       {/* Create Entity - Collapsible */}
