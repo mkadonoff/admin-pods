@@ -1,11 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { entityAPI, EntityTypeCount } from '../api';
+import { entityAPI, EntityTypeCount, getStateColor } from '../api';
+import { SyncPanel } from './SyncPanel';
 
 interface Entity {
   entityId: number;
   displayName: string;
   entityType: string;
   content?: string | null;
+}
+
+// Parse entity content JSON to extract state
+function getEntityState(entity: Entity): string | null {
+  if (!entity.content || entity.entityType !== 'Customer') return null;
+  try {
+    const parsed = JSON.parse(entity.content);
+    return parsed.state || null;
+  } catch {
+    return null;
+  }
 }
 
 interface EntityLibraryProps {
@@ -308,6 +320,11 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         </span>
       </h2>
 
+      {/* Sync Panel */}
+      <div style={{ marginBottom: '10px' }}>
+        <SyncPanel onSyncComplete={() => { loadEntities(); loadEntityTypes(); }} />
+      </div>
+
       {/* Create Entity - Collapsible */}
       <div style={{ 
         marginBottom: '10px', 
@@ -574,6 +591,25 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
                     ) : (
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {/* State color indicator for customers */}
+                          {e.entityType === 'Customer' && (() => {
+                            const state = getEntityState(e);
+                            if (state) {
+                              return (
+                                <span
+                                  style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    backgroundColor: getStateColor(state),
+                                    flexShrink: 0,
+                                  }}
+                                  title={state}
+                                />
+                              );
+                            }
+                            return null;
+                          })()}
                           <strong 
                             onClick={() => onEntitySelect?.(e.entityId)}
                             style={{ 

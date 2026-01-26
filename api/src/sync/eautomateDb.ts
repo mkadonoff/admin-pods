@@ -51,6 +51,8 @@ export interface EAUser {
 export interface EACustomer {
   CustomerID: number;
   CustomerName: string;
+  State: string | null;
+  City: string | null;
   Active: boolean;
 }
 
@@ -81,7 +83,7 @@ export async function fetchActiveUsers(): Promise<EAUser[]> {
 export async function fetchActiveCustomers(): Promise<EACustomer[]> {
   const pool = await getEautomateConnection();
   const result = await pool.request().query<EACustomer>(`
-    SELECT CustomerID, CustomerName, Active
+    SELECT CustomerID, CustomerName, State, City, Active
     FROM dbo.ARCustomers
     WHERE Active = 1
   `);

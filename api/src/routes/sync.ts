@@ -1,12 +1,18 @@
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { runFullSync, FullSyncResult } from '../sync/eautomate';
+import { runFullSync, runSingleSync, FullSyncResult, SyncResult, EntitySyncType } from '../sync/eautomate';
 
 const router = Router();
 
 // Store last sync result in memory
 let lastSyncResult: FullSyncResult | null = null;
 let syncInProgress = false;
+const lastSingleSyncResults: Record<EntitySyncType, { result: SyncResult; syncedAt: string } | null> = {
+  users: null,
+  customers: null,
+  equipment: null,
+  contacts: null,
+};
 
 export default function createSyncRoutes(prisma: PrismaClient) {
   // POST /sync/eautomate - trigger a full sync
@@ -21,6 +27,44 @@ export default function createSyncRoutes(prisma: PrismaClient) {
       const result = await runFullSync(prisma);
       lastSyncResult = result;
       res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: 'Sync failed', message: error.message });
+    } finally {
+      syncInProgress = false;
+    }
+  });
+
+  // POST /sync/eautomate/:entityType - sync a single entity type
+  router.post('/eautomate/:entityType', async (req: Request, res: Response) => {
+    const { entityType } = req.params;
+    const validTypes: EntitySyncType[] = ['users', 'customers', 'equipment', 'contacts'];
+    
+    if (!validTypes.includes(entityType as EntitySyncType)) {
+      return res.status(400).json({ 
+        error: `Invalid entity type: ${entityType}. Valid types: ${validTypes.join(', ')}` 
+      });
+    }
+
+    if (syncInProgress) {
+      return res.status(409).json({ error: 'Sync already in progress' });
+    }
+
+    syncInProgress = true;
+
+    try {
+      const { digitalTwinId, result } = await runSingleSync(prisma, entityType as EntitySyncType);
+      const syncedAt = new Date().toISOString();
+      lastSingleSyncResults[entityType as EntitySyncType] = { result, syncedAt };
+      
+      res.json({
+        digitalTwinId,
+        syncedAt,
+        entityType: result.entityType,
+        created: result.created,
+        updated: result.updated,
+        deleted: result.deleted,
+        errors: result.errors,
+      });
     } catch (error: any) {
       res.status(500).json({ error: 'Sync failed', message: error.message });
     } finally {

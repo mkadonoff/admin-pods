@@ -176,3 +176,55 @@ export const assignmentAPI = {
 export const healthAPI = {
   status: () => API.get<ApiHealth>('/health'),
 };
+
+// Sync
+export type EntitySyncType = 'users' | 'customers' | 'equipment' | 'contacts';
+
+export interface SyncResult {
+  entityType: string;
+  created: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
+}
+
+export interface SingleSyncResponse {
+  digitalTwinId: number;
+  syncedAt: string;
+  entityType: string;
+  created: number;
+  updated: number;
+  deleted: number;
+  errors: string[];
+}
+
+export const syncAPI = {
+  full: () => API.post('/sync/eautomate'),
+  single: (entityType: EntitySyncType) => API.post<SingleSyncResponse>(`/sync/eautomate/${entityType}`),
+};
+
+// Helper to get state color for customers
+export const STATE_COLORS: Record<string, string> = {
+  // Primary states (high count) - distinct colors
+  MD: '#0078d4', // Azure blue - Maryland (HQ)
+  PA: '#107c10', // Green - Pennsylvania
+  VA: '#5c2d91', // Purple - Virginia
+  DC: '#d83b01', // Orange - DC
+  NJ: '#008272', // Teal - New Jersey
+  DE: '#e3008c', // Magenta - Delaware
+  // Regional groupings
+  NC: '#69797e', // Gray-blue
+  NY: '#ca5010', // Dark orange
+  FL: '#00bcf2', // Light blue
+  TX: '#8e562e', // Brown
+  GA: '#567c2e', // Olive
+  CA: '#ff8c00', // Bright orange
+  // Default for others
+  _default: '#605e5c', // Gray
+};
+
+export function getStateColor(state: string | null | undefined): string {
+  if (!state) return STATE_COLORS._default;
+  const normalized = state.toUpperCase().trim();
+  return STATE_COLORS[normalized] || STATE_COLORS._default;
+}

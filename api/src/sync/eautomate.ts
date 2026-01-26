@@ -157,6 +157,7 @@ async function syncUsers(prisma: PrismaClient, digitalTwinId: number): Promise<S
 /**
  * Sync Customers from ARCustomers table
  * Handles duplicate names by appending external ID suffix
+ * Stores State and City in content field as JSON
  */
 async function syncCustomers(prisma: PrismaClient, digitalTwinId: number): Promise<SyncResult> {
   const result: SyncResult = { entityType: 'Customer', created: 0, updated: 0, deleted: 0, errors: [] };
@@ -179,6 +180,13 @@ async function syncCustomers(prisma: PrismaClient, digitalTwinId: number): Promi
 
     for (const customer of eaCustomers) {
       const externalSystemId = `ea-cust-${customer.CustomerID}`;
+      
+      // Store State and City in content as JSON
+      const content = JSON.stringify({
+        state: customer.State || null,
+        city: customer.City || null,
+        customerId: customer.CustomerID,
+      });
 
       try {
         const existing = await prisma.entity.findFirst({
@@ -199,7 +207,7 @@ async function syncCustomers(prisma: PrismaClient, digitalTwinId: number): Promi
                             : existing.displayName;
           await prisma.entity.update({
             where: { entityId: existing.entityId },
-            data: { displayName: updateName },
+            data: { displayName: updateName, content },
           });
           result.updated++;
         } else {
@@ -209,6 +217,7 @@ async function syncCustomers(prisma: PrismaClient, digitalTwinId: number): Promi
               displayName,
               externalSystemId,
               digitalTwinId,
+              content,
             },
           });
           usedDisplayNames.add(displayName);
@@ -411,4 +420,39 @@ export async function runFullSync(prisma: PrismaClient): Promise<FullSyncResult>
     await closeEautomateConnection();
     throw err;
   }
+}
+
+/**
+ * Sync a single entity type from e-automate
+ */
+export type EntitySyncType = 'users' | 'customers' | 'equipment' | 'contacts';
+
+export async function runSingleSync(
+  prisma: PrismaClient,
+  entityType: EntitySyncType
+): Promise<{ digitalTwinId: number; result: SyncResult }> {
+  const digitalTwinId = await getOrCreateDigitalTwin(prisma);
+
+  let result: SyncResult;
+  
+  switch (entityType) {
+    case 'users':
+      result = await syncUsers(prisma, digitalTwinId);
+      break;
+    case 'customers':
+      result = await syncCustomers(prisma, digitalTwinId);
+      break;
+    case 'equipment':
+      result = await syncEquipment(prisma, digitalTwinId);
+      break;
+    case 'contacts':
+      result = await syncContacts(prisma, digitalTwinId);
+      break;
+    default:
+      throw new Error(`Unknown entity type: ${entityType}`);
+  }
+
+  await closeEautomateConnection();
+
+  return { digitalTwinId, result };
 }
