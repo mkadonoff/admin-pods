@@ -137,9 +137,26 @@ export const podAPI = {
 };
 
 // Entities
+export interface EntityListResponse {
+  data: Entity[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
+export interface EntityTypeCount {
+  entityType: string;
+  count: number;
+}
+
 export const entityAPI = {
-  list: (digitalTwinId: number, type?: string, q?: string) => 
-    API.get<Entity[]>('/entities', { params: { digitalTwinId, type, q } }),
+  list: (digitalTwinId: number, type?: string, q?: string, limit?: number, offset?: number) => 
+    API.get<EntityListResponse>('/entities', { params: { digitalTwinId, type, q, limit, offset } }),
+  getTypes: (digitalTwinId: number) =>
+    API.get<EntityTypeCount[]>('/entities/types', { params: { digitalTwinId } }),
   create: (data: { entityType: string; displayName: string; digitalTwinId: number; externalSystemId?: string; content?: string }) =>
     API.post<Entity>('/entities', data),
   update: (id: number, data: Partial<{ displayName: string; externalSystemId: string; content: string }>) =>

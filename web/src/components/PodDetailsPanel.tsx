@@ -84,8 +84,9 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
       return;
     }
     try {
-      const response = await entityAPI.list(digitalTwinId);
-      setEntities(response.data);
+      // Load a large limit to get all entities for assignment dropdown
+      const response = await entityAPI.list(digitalTwinId, undefined, undefined, 1000);
+      setEntities(response.data.data);
     } catch (error) {
       console.error('Failed to load entities', error);
     }
@@ -175,7 +176,7 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
   // Filter out entities already assigned to THIS pod (prevent duplicate assignments to same pod)
   const currentPodAssignedEntityIds = new Set(assignments.map((assignment) => assignment.entityId));
   const availableEntities = entities.filter((entity) => !currentPodAssignedEntityIds.has(entity.entityId));
-  const isCompanyPod = assignments.some((assignment) => (assignment.entity?.entityType || '').toLowerCase() === 'company');
+  const isCustomerPod = assignments.some((assignment) => assignment.entity?.entityType === 'Customer');
 
   return (
     <div
@@ -234,8 +235,8 @@ export const PodDetailsPanel: React.FC<PodDetailsPanelProps> = ({
         <button
           onClick={() => {
             if (!podId) return;
-            if (!isCompanyPod) {
-              alert('This workflow can only be run for a pod assigned to a Company entity.');
+            if (!isCustomerPod) {
+              alert('This workflow can only be run for a pod assigned to a Customer entity.');
               return;
             }
             onProcessPod?.(podId);

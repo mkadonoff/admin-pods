@@ -37,9 +37,9 @@ export const MyPresenceBar: React.FC<MyPresenceBarProps> = ({
       }
       setLoading(true);
       try {
-        const response = await entityAPI.list(digitalTwinId, 'Person');
+        const response = await entityAPI.list(digitalTwinId, 'User');
         if (!cancelled) {
-          setPeople(response.data);
+          setPeople(response.data.data);
           setError(null);
         }
       } catch (err) {

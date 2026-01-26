@@ -84,6 +84,7 @@ model Entity {
   assignments        PodAssignment[]
 
   @@unique([digitalTwinId, displayName, entityType])
+  @@index([digitalTwinId, externalSystemId])
   @@map("Entity")
 }
 

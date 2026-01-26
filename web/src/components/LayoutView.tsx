@@ -509,7 +509,7 @@ function RingMesh({
         }
         const hasAssignment = (pod.assignments?.length ?? 0) > 0;
         const hasHumanoid = (pod.assignments || []).some(
-          (a) => a.entity?.entityType?.toLowerCase() === 'person' || a.entity?.entityType?.toLowerCase() === 'agent'
+          (a) => a.entity?.entityType === 'User' || a.entity?.entityType === 'Agent'
         );
         const isDimmed = dimPodId === pod.podId;
         return (

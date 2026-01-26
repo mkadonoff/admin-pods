@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { entityAPI } from '../api';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { entityAPI, EntityTypeCount } from '../api';
 
 interface Entity {
   entityId: number;
@@ -30,6 +30,12 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string> | 'all'>('all');
   const typeInputRef = useRef<HTMLInputElement>(null);
+  
+  // Pagination state
+  const [pagination, setPagination] = useState<{ total: number; hasMore: boolean }>({ total: 0, hasMore: false });
+  const [entityTypes, setEntityTypes] = useState<EntityTypeCount[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const PAGE_SIZE = 200;
 
   const isPanelVariant = variant === 'panel';
   const containerStyle = {
@@ -64,31 +70,75 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
   useEffect(() => {
     if (digitalTwinId) {
       loadEntities();
+      loadEntityTypes();
     } else {
       setEntities([]);
+      setEntityTypes([]);
+      setPagination({ total: 0, hasMore: false });
     }
   }, [digitalTwinId, debouncedFilter, debouncedSearch]);
 
-  const loadEntities = async () => {
+  const loadEntityTypes = async () => {
+    if (!digitalTwinId) return;
+    try {
+      const response = await entityAPI.getTypes(digitalTwinId);
+      setEntityTypes(response.data);
+    } catch (error) {
+      console.error('Failed to load entity types', error);
+    }
+  };
+
+  const loadEntities = async (append = false, offset = 0) => {
     if (!digitalTwinId) {
       return [];
     }
+    setIsLoading(true);
     try {
-      const response = await entityAPI.list(digitalTwinId, debouncedFilter || undefined, debouncedSearch || undefined);
-      setEntities(response.data);
+      const response = await entityAPI.list(
+        digitalTwinId, 
+        debouncedFilter || undefined, 
+        debouncedSearch || undefined,
+        PAGE_SIZE,
+        offset
+      );
+      const newEntities = response.data.data;
+      
+      if (append) {
+        setEntities(prev => [...prev, ...newEntities]);
+      } else {
+        setEntities(newEntities);
+      }
+      
+      setPagination({
+        total: response.data.pagination.total,
+        hasMore: response.data.pagination.hasMore,
+      });
+      
       const nextDrafts: Record<number, string> = {};
-      response.data
+      newEntities
         .filter((entity) => entity.entityType === 'Document')
         .forEach((entity) => {
           nextDrafts[entity.entityId] = entity.content ?? '';
         });
-      setDocumentDrafts(nextDrafts);
-      return response.data;
+      if (append) {
+        setDocumentDrafts(prev => ({ ...prev, ...nextDrafts }));
+      } else {
+        setDocumentDrafts(nextDrafts);
+      }
+      return newEntities;
     } catch (error) {
       console.error('Failed to load entities', error);
       return [];
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  const loadMoreEntities = useCallback(() => {
+    if (pagination.hasMore && !isLoading) {
+      loadEntities(true, entities.length);
+    }
+  }, [pagination.hasMore, isLoading, entities.length]);
 
   const handleCreateEntity = async () => {
     if (!digitalTwinId) {
@@ -178,13 +228,20 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
     }
   };
 
-  // Get unique entity types for autocomplete
+  // Get unique entity types for autocomplete from API
   const existingTypes = useMemo(() => {
-    const types = new Set(entities.map((e) => e.entityType));
+    const types = new Set(entityTypes.map((e) => e.entityType));
     // Add common defaults if not present
-    ['Person', 'Machine', 'Document', 'Device', 'Service'].forEach((t) => types.add(t));
+    ['User', 'Customer', 'Equipment', 'Contact', 'Agent', 'Document'].forEach((t) => types.add(t));
     return Array.from(types).sort();
-  }, [entities]);
+  }, [entityTypes]);
+
+  // Map type to count for display
+  const typeCountMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    entityTypes.forEach(t => { map[t.entityType] = t.count; });
+    return map;
+  }, [entityTypes]);
 
   // Filter types for dropdown based on input
   const filteredTypes = useMemo(() => {
@@ -241,7 +298,21 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
         marginBottom: '10px',
         paddingBottom: '6px',
         borderBottom: '1px solid var(--border)',
-      }}>Entity Library</h2>
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+      }}>
+        <span>Entity Library</span>
+        <span style={{ 
+          fontSize: '10px', 
+          fontWeight: 400, 
+          color: 'var(--text-muted)',
+          textTransform: 'none',
+          letterSpacing: 'normal',
+        }}>
+          {entities.length}{pagination.total > entities.length ? ` of ${pagination.total.toLocaleString()}` : pagination.total > 0 ? ` (${pagination.total.toLocaleString()})` : ''}
+        </span>
+      </h2>
 
       {/* Create Entity - Collapsible */}
       <div style={{ 
@@ -366,9 +437,7 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
       </div>
 
       {/* Filter & Search */}
-      <input
-        type="text"
-        placeholder="Filter by type"
+      <select
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         style={{ 
@@ -382,7 +451,14 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
           borderRadius: '3px',
           fontSize: '11px',
         }}
-      />
+      >
+        <option value="">All Types ({entityTypes.reduce((sum, t) => sum + t.count, 0).toLocaleString()})</option>
+        {entityTypes.map(t => (
+          <option key={t.entityType} value={t.entityType}>
+            {t.entityType} ({t.count.toLocaleString()})
+          </option>
+        ))}
+      </select>
       <input
         type="text"
         placeholder="Search name"
@@ -581,6 +657,40 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
             )}
           </div>
         ))
+      )}
+
+      {/* Load More button */}
+      {pagination.hasMore && (
+        <div style={{ 
+          padding: '10px', 
+          textAlign: 'center',
+          borderTop: '1px solid var(--border)',
+          marginTop: '10px',
+        }}>
+          <button
+            onClick={loadMoreEntities}
+            disabled={isLoading}
+            style={{
+              padding: '8px 16px',
+              fontSize: '11px',
+              backgroundColor: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              color: 'var(--text)',
+              cursor: isLoading ? 'wait' : 'pointer',
+              width: '100%',
+            }}
+          >
+            {isLoading ? 'Loading...' : `Load More (${entities.length.toLocaleString()} of ${pagination.total.toLocaleString()})`}
+          </button>
+        </div>
+      )}
+
+      {/* Loading indicator */}
+      {isLoading && entities.length === 0 && (
+        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+          Loading entities...
+        </div>
       )}
     </div>
   );
