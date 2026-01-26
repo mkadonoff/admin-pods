@@ -11,10 +11,11 @@ interface Entity {
 interface EntityLibraryProps {
   digitalTwinId: number | null;
   onEntitiesChanged?: () => void;
+  onEntitySelect?: (entityId: number) => void;
   variant?: 'sidebar' | 'panel';
 }
 
-export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onEntitiesChanged, variant = 'sidebar' }) => {
+export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onEntitiesChanged, onEntitySelect, variant = 'sidebar' }) => {
   const [entities, setEntities] = useState<Entity[]>([]);
   const [filter, setFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -573,7 +574,20 @@ export const EntityLibrary: React.FC<EntityLibraryProps> = ({ digitalTwinId, onE
                     ) : (
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <strong style={{ color: 'var(--text)', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1', minWidth: 0 }}>{e.displayName}</strong>
+                          <strong 
+                            onClick={() => onEntitySelect?.(e.entityId)}
+                            style={{ 
+                              color: 'var(--text)', 
+                              fontSize: '11px', 
+                              whiteSpace: 'nowrap', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              flex: '1', 
+                              minWidth: 0,
+                              cursor: onEntitySelect ? 'pointer' : 'default',
+                            }}
+                            title={onEntitySelect ? 'Click to find in 3D view' : undefined}
+                          >{e.displayName}</strong>
                           <button
                             onClick={() => handleEditEntity(e.entityId, e.displayName)}
                             style={{

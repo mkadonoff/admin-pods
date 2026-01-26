@@ -31,6 +31,7 @@ function App() {
   const [showPodDetails, setShowPodDetails] = useState(false);
   const [processRequestNonce, setProcessRequestNonce] = useState(0);
   const [processRequestPodId, setProcessRequestPodId] = useState<number | null>(null);
+  const [focusRequestNonce, setFocusRequestNonce] = useState(0);
   const [assignmentsVersion, setAssignmentsVersion] = useState(0);
   const [myPersonEntityId, setMyPersonEntityId] = useState<number | null>(null);
   const [entityVersion, setEntityVersion] = useState(0);
@@ -232,6 +233,27 @@ function App() {
     setProcessRequestPodId(podId);
     setProcessRequestNonce((n) => n + 1);
   }, []);
+
+  // Handle entity selection from EntityLibrary - find pod and focus camera
+  const handleEntitySelect = useCallback((entityId: number) => {
+    // Find the pod that has this entity assigned
+    for (const floor of floors) {
+      for (const ring of floor.rings || []) {
+        for (const pod of ring.pods || []) {
+          const hasEntity = (pod.assignments || []).some(a => a.entityId === entityId);
+          if (hasEntity) {
+            // Select the pod and trigger camera focus
+            setSelectedPodId(pod.podId);
+            setShowPodDetails(true);
+            setFocusRequestNonce(n => n + 1);
+            return;
+          }
+        }
+      }
+    }
+    // Entity not assigned to any pod
+    alert('This entity is not assigned to any pod yet.');
+  }, [floors]);
 
   // Find Tower and floor for selected pod
   const selectedPodInfo = useMemo(() => {
@@ -493,6 +515,7 @@ function App() {
                   handleProcessPod(selectedPodId);
                 }
               }}
+              focusRequest={focusRequestNonce > 0 ? { nonce: focusRequestNonce } : null}
               onNavigationStateChange={(state, handleAction) => {
                 setPodNavState(state);
                 podNavActionRef.current = handleAction;
@@ -578,7 +601,12 @@ function App() {
             minHeight: 0,
           }}
         >
-          <EntityLibrary variant="sidebar" digitalTwinId={currentDigitalTwinId} onEntitiesChanged={notifyEntitiesChanged} />
+          <EntityLibrary 
+            variant="sidebar" 
+            digitalTwinId={currentDigitalTwinId} 
+            onEntitiesChanged={notifyEntitiesChanged} 
+            onEntitySelect={handleEntitySelect}
+          />
         </div>
       </div>
     </div>

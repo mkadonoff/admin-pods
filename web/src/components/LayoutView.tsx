@@ -476,6 +476,20 @@ function PodMesh({
         <HumanoidSkeleton position={[0, -POD_HEIGHT / 2 + 0.05, 0]} scale={0.8} color={frameColor} faceAngle={faceAngle} />
       )}
       
+      {/* Selection highlight ring */}
+      {isSelected && (
+        <mesh position={[0, -POD_HEIGHT / 2 + 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[podRadius + 0.05, podRadius + 0.15, 6]} />
+          <meshStandardMaterial 
+            color="#ffbb00" 
+            emissive="#ffbb00"
+            emissiveIntensity={0.8}
+            transparent 
+            opacity={0.9}
+          />
+        </mesh>
+      )}
+      
       {isPresencePod && (
         <group position={[0, POD_HEIGHT * 0.9, 0]}>
           <mesh>
@@ -756,6 +770,8 @@ interface LayoutViewProps {
   presencePodId?: number | null;
   processRequest?: { podId: number; nonce: number } | null;
   onRequestProcessSelected?: () => void;
+  /** Request to focus camera on selected pod */
+  focusRequest?: { nonce: number } | null;
   /** Callback when navigation state changes - passes state and action handler for HUD rendering */
   onNavigationStateChange?: (state: NavigationState | null, handleAction: ((action: NavAction) => void) | null) => void;
 }
@@ -772,6 +788,7 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
   presencePodId,
   processRequest,
   onRequestProcessSelected,
+  focusRequest,
   onNavigationStateChange,
 }) => {
   const [cameraPosition, setCameraPosition] = useState<[number, number, number]>(INITIAL_CAMERA_POSITION);
@@ -1089,6 +1106,15 @@ export const LayoutView: React.FC<LayoutViewProps> = ({
     if (!processRequest) return;
     startWorkflow(processRequest.podId);
   }, [processRequest?.nonce]);
+
+  // Handle focus request - zoom camera to selected pod
+  useEffect(() => {
+    if (!focusRequest || !selectedPodId) return;
+    const info = findPodSceneInfo(selectedPodId);
+    if (info) {
+      focusOnPosition(info.origin, 8);
+    }
+  }, [focusRequest?.nonce]);
 
   // Pod navigation action handler
   const handlePodNavAction = useCallback((action: NavAction) => {
